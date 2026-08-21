@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CSV Insight giúp tải lên, xem trước và kiểm tra nhanh dữ liệu CSV.">
+  <title>CSV Insight — Data workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Bỏ qua đến nội dung chính</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#" aria-label="CSV Insight - Trang chủ">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img"><path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm0 5h14M9 4v16m5-11v11"/></svg>
+        </span>
+        <span>CSV Insight</span>
+      </a>
+
+      <div class="header-status" aria-label="Trạng thái hệ thống">
+        <span class="status-dot" aria-hidden="true"></span>
+        Local workspace
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="hero container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Data processing workspace</p>
+        <h1 id="hero-title">Hiểu dữ liệu CSV<br>trong vài giây.</h1>
+        <p class="hero-description">Tải tệp lên để xem trước cấu trúc, kiểm tra chất lượng và tìm kiếm dữ liệu ngay trên trình duyệt.</p>
+      </div>
+
+      <aside class="pipeline-card" aria-label="Kiến trúc xử lý dữ liệu">
+        <p class="card-label">Processing pipeline</p>
+        <ol class="pipeline-list">
+          <li class="is-active"><span>01</span><div><strong>Browser</strong><small>Upload & preview</small></div></li>
+          <li><span>02</span><div><strong>Flask + pandas</strong><small>Local processing</small></div></li>
+          <li><span>03</span><div><strong>AWS</strong><small>Scale when ready</small></div></li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="workspace container" aria-labelledby="workspace-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Step 01</p>
+          <h2 id="workspace-title">Chọn dữ liệu cần phân tích</h2>
+        </div>
+        <button class="button button-ghost" id="loadSampleButton" type="button">Dùng dữ liệu mẫu</button>
+      </div>
+
+      <div class="upload-zone" id="uploadZone">
+        <input id="fileInput" type="file" accept=".csv,text/csv" hidden>
+        <div class="upload-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+        </div>
+        <h3>Kéo và thả tệp CSV vào đây</h3>
+        <p>hoặc chọn tệp từ thiết bị của bạn</p>
+        <button class="button button-primary" id="browseButton" type="button">Chọn tệp CSV</button>
+        <small>Tối đa 10 MB · dữ liệu được xử lý cục bộ trong bản demo</small>
+      </div>
+
+      <div class="message" id="message" role="status" aria-live="polite" hidden></div>
+    </section>
+
+    <section class="results container" id="results" aria-labelledby="results-title" hidden>
+      <div class="section-heading results-heading">
+        <div>
+          <p class="eyebrow">Step 02</p>
+          <h2 id="results-title">Tổng quan dữ liệu</h2>
+          <p class="file-meta" id="fileMeta"></p>
+        </div>
+        <button class="icon-button" id="resetButton" type="button" aria-label="Đóng kết quả và chọn tệp khác" title="Chọn tệp khác">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div>
+            <h3>Xem trước dữ liệu</h3>
+            <p id="rowSummary">Hiển thị các dòng đầu tiên</p>
+          </div>
+          <label class="search-field">
+            <span class="sr-only">Tìm trong dữ liệu</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+            <input id="searchInput" type="search" placeholder="Tìm trong bảng..." autocomplete="off">
+          </label>
+        </div>
+        <div class="table-wrap" tabindex="0" aria-label="Bảng xem trước dữ liệu CSV">
+          <table id="dataTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="empty-state container" id="emptyState" aria-label="Tính năng chính">
+      <article><span>01</span><h3>Upload an toàn</h3><p>Kiểm tra định dạng và kích thước trước khi gửi đến backend.</p></article>
+      <article><span>02</span><h3>Preview tức thì</h3><p>Đọc dòng tiêu đề, dữ liệu mẫu và giá trị thiếu ngay trên trình duyệt.</p></article>
+      <article><span>03</span><h3>Sẵn sàng mở rộng</h3><p>Cấu trúc frontend tách biệt để kết nối Flask và AWS về sau.</p></article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container"><span>CSV Insight</span><span>HTML · CSS · JavaScript</span></div>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
