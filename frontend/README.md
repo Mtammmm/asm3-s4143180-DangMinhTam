@@ -1,17 +1,17 @@
 # CSV Insight frontend
 
-Frontend MVP viết bằng HTML, CSS và JavaScript thuần.
+Frontend MVP built with plain HTML, CSS, and JavaScript.
 
-## Chạy cục bộ
+## Run locally
 
-Mở `index.html` trực tiếp trong trình duyệt hoặc chạy static server:
+Open `index.html` directly in a browser or run a static server:
 
 ```bash
 python -m http.server 5500 --directory frontend
 ```
 
-Sau đó truy cập `http://localhost:5500`.
+Then visit `http://localhost:5500`.
 
-## Tích hợp Flask sau này
+## Future Flask integration
 
-Hiện tại CSV được đọc trong trình duyệt để giao diện có thể hoạt động độc lập. Khi backend sẵn sàng, thay phần `FileReader` trong `handleFile()` bằng `fetch()` gửi `FormData` đến endpoint Flask, ví dụ `POST /api/upload`.
+CSV files are currently read in the browser so the interface can work independently. When the backend is ready, replace the `FileReader` logic in `handleFile()` with a `fetch()` request that sends `FormData` to a Flask endpoint such as `POST /api/upload`.

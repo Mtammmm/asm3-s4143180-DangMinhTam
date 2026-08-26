@@ -7,6 +7,7 @@ const elements = {
   emptyState: document.querySelector("#emptyState"),
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
+  heroSampleButton: document.querySelector("#heroSampleButton"),
   loadSampleButton: document.querySelector("#loadSampleButton"),
   message: document.querySelector("#message"),
   resetButton: document.querySelector("#resetButton"),
@@ -22,6 +23,7 @@ let currentDataset = { headers: [], rows: [] };
 elements.browseButton.addEventListener("click", () => elements.fileInput.click());
 elements.fileInput.addEventListener("change", (event) => handleFile(event.target.files[0]));
 elements.loadSampleButton.addEventListener("click", loadSampleData);
+elements.heroSampleButton.addEventListener("click", loadSampleData);
 elements.resetButton.addEventListener("click", resetWorkspace);
 elements.searchInput.addEventListener("input", filterRows);
 
@@ -46,11 +48,11 @@ function handleFile(file) {
 
   if (!file) return;
   if (!file.name.toLowerCase().endsWith(".csv")) {
-    showMessage("Vui lòng chọn đúng tệp có phần mở rộng .csv.", "error");
+    showMessage("Please choose a file with a .csv extension.", "error");
     return;
   }
   if (file.size > MAX_FILE_SIZE) {
-    showMessage("Tệp vượt quá giới hạn 10 MB.", "error");
+    showMessage("The file exceeds the 10 MB limit.", "error");
     return;
   }
 
@@ -58,14 +60,14 @@ function handleFile(file) {
   reader.addEventListener("load", () => {
     try {
       const dataset = parseCSV(String(reader.result));
-      if (!dataset.headers.length || !dataset.rows.length) throw new Error("Tệp không chứa dữ liệu hợp lệ.");
+      if (!dataset.headers.length || !dataset.rows.length) throw new Error("The file does not contain valid data.");
       displayDataset(dataset, file.name, file.size);
-      showMessage(`Đã đọc thành công ${file.name}.`, "success");
+      showMessage(`${file.name} was loaded successfully.`, "success");
     } catch (error) {
-      showMessage(error.message || "Không thể đọc tệp CSV này.", "error");
+      showMessage(error.message || "This CSV file could not be read.", "error");
     }
   });
-  reader.addEventListener("error", () => showMessage("Không thể đọc tệp. Vui lòng thử lại.", "error"));
+  reader.addEventListener("error", () => showMessage("The file could not be read. Please try again.", "error"));
   reader.readAsText(file, "UTF-8");
 }
 
@@ -126,20 +128,26 @@ function renderStats(dataset) {
   const emptyCells = dataset.rows.flat().filter((value) => value === "").length;
   const completePercent = totalCells ? Math.round(((totalCells - emptyCells) / totalCells) * 100) : 0;
   const stats = [
-    ["Số dòng", dataset.rows.length.toLocaleString("vi-VN")],
-    ["Số cột", dataset.headers.length.toLocaleString("vi-VN")],
-    ["Ô trống", emptyCells.toLocaleString("vi-VN")],
-    ["Độ đầy đủ", `${completePercent}%`]
+    ["Rows", dataset.rows.length.toLocaleString("en-US"), "records detected", "rows"],
+    ["Columns", dataset.headers.length.toLocaleString("en-US"), "fields available", "columns"],
+    ["Empty cells", emptyCells.toLocaleString("en-US"), emptyCells ? "review recommended" : "nothing missing", "empty"],
+    ["Completeness", `${completePercent}%`, completePercent >= 90 ? "healthy dataset" : "needs attention", "complete"]
   ];
 
-  elements.statsGrid.replaceChildren(...stats.map(([label, value]) => {
+  elements.statsGrid.replaceChildren(...stats.map(([label, value, hint, type]) => {
     const card = document.createElement("article");
-    card.className = "stat-card";
+    card.className = `stat-card stat-${type}`;
+    const top = document.createElement("div");
     const labelElement = document.createElement("span");
+    const marker = document.createElement("i");
     const valueElement = document.createElement("strong");
+    const hintElement = document.createElement("small");
     labelElement.textContent = label;
+    marker.setAttribute("aria-hidden", "true");
     valueElement.textContent = value;
-    card.append(labelElement, valueElement);
+    hintElement.textContent = hint;
+    top.append(labelElement, marker);
+    card.append(top, valueElement, hintElement);
     return card;
   }));
 }
@@ -160,7 +168,7 @@ function renderTable(rows) {
     const tr = document.createElement("tr");
     row.forEach((value) => {
       const td = document.createElement("td");
-      td.textContent = value || "Trống";
+      td.textContent = value || "Empty";
       if (!value) td.className = "is-empty";
       tr.append(td);
     });
@@ -170,14 +178,14 @@ function renderTable(rows) {
   elements.dataTable.replaceChildren(thead, tbody);
   const shown = Math.min(rows.length, MAX_PREVIEW_ROWS);
   elements.rowSummary.textContent = rows.length
-    ? `Hiển thị ${shown} / ${currentDataset.rows.length} dòng`
-    : "Không tìm thấy dòng phù hợp";
+    ? `Showing ${shown} of ${currentDataset.rows.length} rows`
+    : "No matching rows found";
 }
 
 function filterRows(event) {
-  const query = event.target.value.trim().toLocaleLowerCase("vi");
+  const query = event.target.value.trim().toLocaleLowerCase("en");
   const filtered = query
-    ? currentDataset.rows.filter((row) => row.some((value) => value.toLocaleLowerCase("vi").includes(query)))
+    ? currentDataset.rows.filter((row) => row.some((value) => value.toLocaleLowerCase("en").includes(query)))
     : currentDataset.rows;
   renderTable(filtered.slice(0, MAX_PREVIEW_ROWS));
 }
@@ -185,15 +193,15 @@ function filterRows(event) {
 function loadSampleData() {
   const sample = [
     ["order_id", "customer", "city", "amount", "status"],
-    ["ORD-1001", "Nguyễn Minh", "Hồ Chí Minh", "1250000", "Completed"],
-    ["ORD-1002", "Trần Hà", "Đà Nẵng", "890000", "Processing"],
-    ["ORD-1003", "Lê An", "Hà Nội", "", "Pending"],
-    ["ORD-1004", "Phạm Vy", "Cần Thơ", "2140000", "Completed"],
-    ["ORD-1005", "Hoàng Nam", "Hải Phòng", "760000", "Completed"]
+    ["ORD-1001", "Alex Morgan", "Melbourne", "1250000", "Completed"],
+    ["ORD-1002", "Taylor Lee", "Sydney", "890000", "Processing"],
+    ["ORD-1003", "Jordan Smith", "Brisbane", "", "Pending"],
+    ["ORD-1004", "Casey Brown", "Perth", "2140000", "Completed"],
+    ["ORD-1005", "Jamie Wilson", "Adelaide", "760000", "Completed"]
   ];
   const [headers, ...rows] = sample;
   displayDataset({ headers, rows }, "sample-orders.csv", 348);
-  showMessage("Đã tải dữ liệu mẫu để bạn khám phá giao diện.", "success");
+  showMessage("Sample data is ready for you to explore.", "success");
 }
 
 function resetWorkspace() {

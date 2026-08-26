@@ -1,30 +1,36 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="CSV Insight giúp tải lên, xem trước và kiểm tra nhanh dữ liệu CSV.">
+  <meta name="description" content="CSV Insight helps you upload, preview, and quickly inspect CSV data.">
   <title>CSV Insight — Data workspace</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Bỏ qua đến nội dung chính</a>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
   <header class="site-header">
     <div class="container header-inner">
-      <a class="brand" href="#" aria-label="CSV Insight - Trang chủ">
+      <a class="brand" href="#" aria-label="CSV Insight - Home">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img"><path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm0 5h14M9 4v16m5-11v11"/></svg>
         </span>
         <span>CSV Insight</span>
       </a>
 
-      <div class="header-status" aria-label="Trạng thái hệ thống">
-        <span class="status-dot" aria-hidden="true"></span>
-        Local workspace
+      <div class="header-actions">
+        <div class="header-status" aria-label="System status">
+          <span class="status-dot" aria-hidden="true"></span>
+          Your data stays private
+        </div>
+        <a class="header-link" href="#workspace-title">Open workspace
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        </a>
       </div>
     </div>
   </header>
@@ -32,18 +38,33 @@
   <main id="main-content">
     <section class="hero container" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow">Data processing workspace</p>
-        <h1 id="hero-title">Hiểu dữ liệu CSV<br>trong vài giây.</h1>
-        <p class="hero-description">Tải tệp lên để xem trước cấu trúc, kiểm tra chất lượng và tìm kiếm dữ liệu ngay trên trình duyệt.</p>
+        <p class="hero-kicker"><span aria-hidden="true"></span> Fast, private CSV analysis</p>
+        <h1 id="hero-title">Turn raw CSV files into <span>clear insight.</span></h1>
+        <p class="hero-description">Preview structure, spot missing values, and explore every row in a focused workspace—without sending your data anywhere.</p>
+        <div class="hero-actions">
+          <a class="button button-primary button-large" href="#workspace-title">Analyze a CSV
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+          </a>
+          <button class="button button-secondary button-large" id="heroSampleButton" type="button">Explore sample data</button>
+        </div>
+        <ul class="hero-trust" aria-label="Product benefits">
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>No account needed</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>100% browser-based</li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>Up to 10 MB</li>
+        </ul>
       </div>
 
-      <aside class="pipeline-card" aria-label="Kiến trúc xử lý dữ liệu">
-        <p class="card-label">Processing pipeline</p>
+      <aside class="pipeline-card" aria-label="Data processing architecture">
+        <div class="pipeline-header">
+          <div><p class="card-label">Workspace preview</p><strong>Processing pipeline</strong></div>
+          <span class="live-badge"><i aria-hidden="true"></i> Ready</span>
+        </div>
         <ol class="pipeline-list">
-          <li class="is-active"><span>01</span><div><strong>Browser</strong><small>Upload & preview</small></div></li>
-          <li><span>02</span><div><strong>Flask + pandas</strong><small>Local processing</small></div></li>
-          <li><span>03</span><div><strong>AWS</strong><small>Scale when ready</small></div></li>
+          <li class="is-active"><span class="pipeline-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM8 22h8M12 18v4"/></svg></span><div><strong>Upload securely</strong><small>File validation in your browser</small></div><b>01</b></li>
+          <li><span class="pipeline-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16M8 3v4M16 10v4M11 17v4"/></svg></span><div><strong>Parse instantly</strong><small>Rows and columns structured locally</small></div><b>02</b></li>
+          <li><span class="pipeline-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span><div><strong>Explore clearly</strong><small>Quality metrics and live search</small></div><b>03</b></li>
         </ol>
+        <div class="pipeline-footer"><span>Private session</span><span>AES-ready architecture</span></div>
       </aside>
     </section>
 
@@ -51,9 +72,9 @@
       <div class="section-heading">
         <div>
           <p class="eyebrow">Step 01</p>
-          <h2 id="workspace-title">Chọn dữ liệu cần phân tích</h2>
+          <h2 id="workspace-title">Choose data to analyze</h2>
         </div>
-        <button class="button button-ghost" id="loadSampleButton" type="button">Dùng dữ liệu mẫu</button>
+        <button class="button button-ghost" id="loadSampleButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 5v14"/></svg>Use sample data</button>
       </div>
 
       <div class="upload-zone" id="uploadZone">
@@ -61,10 +82,11 @@
         <div class="upload-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
         </div>
-        <h3>Kéo và thả tệp CSV vào đây</h3>
-        <p>hoặc chọn tệp từ thiết bị của bạn</p>
-        <button class="button button-primary" id="browseButton" type="button">Chọn tệp CSV</button>
-        <small>Tối đa 10 MB · dữ liệu được xử lý cục bộ trong bản demo</small>
+        <p class="upload-label">CSV uploader</p>
+        <h3>Drop your CSV file here</h3>
+        <p>or browse your device to start exploring</p>
+        <button class="button button-primary" id="browseButton" type="button">Choose CSV file</button>
+        <small>Up to 10 MB · data is processed locally in this demo</small>
       </div>
 
       <div class="message" id="message" role="status" aria-live="polite" hidden></div>
@@ -74,10 +96,10 @@
       <div class="section-heading results-heading">
         <div>
           <p class="eyebrow">Step 02</p>
-          <h2 id="results-title">Tổng quan dữ liệu</h2>
+          <h2 id="results-title">Data overview</h2>
           <p class="file-meta" id="fileMeta"></p>
         </div>
-        <button class="icon-button" id="resetButton" type="button" aria-label="Đóng kết quả và chọn tệp khác" title="Chọn tệp khác">
+        <button class="icon-button" id="resetButton" type="button" aria-label="Close results and choose another file" title="Choose another file">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
       </div>
@@ -87,25 +109,25 @@
       <div class="table-card">
         <div class="table-toolbar">
           <div>
-            <h3>Xem trước dữ liệu</h3>
-            <p id="rowSummary">Hiển thị các dòng đầu tiên</p>
+            <h3>Data preview</h3>
+            <p id="rowSummary">Showing the first rows</p>
           </div>
           <label class="search-field">
-            <span class="sr-only">Tìm trong dữ liệu</span>
+            <span class="sr-only">Search the data</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
-            <input id="searchInput" type="search" placeholder="Tìm trong bảng..." autocomplete="off">
+            <input id="searchInput" type="search" placeholder="Search the table..." autocomplete="off">
           </label>
         </div>
-        <div class="table-wrap" tabindex="0" aria-label="Bảng xem trước dữ liệu CSV">
+        <div class="table-wrap" tabindex="0" aria-label="CSV data preview table">
           <table id="dataTable"></table>
         </div>
       </div>
     </section>
 
-    <section class="empty-state container" id="emptyState" aria-label="Tính năng chính">
-      <article><span>01</span><h3>Upload an toàn</h3><p>Kiểm tra định dạng và kích thước trước khi gửi đến backend.</p></article>
-      <article><span>02</span><h3>Preview tức thì</h3><p>Đọc dòng tiêu đề, dữ liệu mẫu và giá trị thiếu ngay trên trình duyệt.</p></article>
-      <article><span>03</span><h3>Sẵn sàng mở rộng</h3><p>Cấu trúc frontend tách biệt để kết nối Flask và AWS về sau.</p></article>
+    <section class="empty-state container" id="emptyState" aria-label="Key features">
+      <article><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></span><div><small>01 / PRIVATE</small><h3>Safe by design</h3><p>Your file is validated and processed directly inside your browser.</p></div></article>
+      <article><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 5v14"/></svg></span><div><small>02 / INSTANT</small><h3>See data clearly</h3><p>Review headers, sample records, completeness, and missing values at a glance.</p></div></article>
+      <article><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span><div><small>03 / SCALABLE</small><h3>Built to grow</h3><p>A clean frontend architecture ready for Flask, pandas, and AWS integration.</p></div></article>
     </section>
   </main>
 
