@@ -14,17 +14,33 @@ const elements = {
   heroSampleButton: document.querySelector("#heroSampleButton"),
   loginForm: document.querySelector("#loginForm"),
   loadSampleButton: document.querySelector("#loadSampleButton"),
+  mainContent: document.querySelector("#main-content"),
   message: document.querySelector("#message"),
+  memberAnalyzeButton: document.querySelector("#memberAnalyzeButton"),
+  memberAnalyzeNavButton: document.querySelector("#memberAnalyzeNavButton"),
+  memberApp: document.querySelector("#memberApp"),
+  memberAvatar: document.querySelector("#memberAvatar"),
+  memberDashboardButton: document.querySelector("#memberDashboardButton"),
+  memberGreetingName: document.querySelector("#memberGreetingName"),
+  memberNav: document.querySelector("#memberNav"),
+  memberProfileEmail: document.querySelector("#memberProfileEmail"),
+  memberProfileName: document.querySelector("#memberProfileName"),
+  memberSampleButton: document.querySelector("#memberSampleButton"),
+  memberUploadButton: document.querySelector("#memberUploadButton"),
+  primaryNav: document.querySelector(".primary-nav"),
+  recentAnalyzeButton: document.querySelector("#recentAnalyzeButton"),
   resetButton: document.querySelector("#resetButton"),
   results: document.querySelector("#results"),
   rowSummary: document.querySelector("#rowSummary"),
   searchInput: document.querySelector("#searchInput"),
   signOutButton: document.querySelector("#signOutButton"),
+  skipLink: document.querySelector("#skipLink"),
   signupForm: document.querySelector("#signupForm"),
   statsGrid: document.querySelector("#statsGrid"),
   themeToggle: document.querySelector("#themeToggle"),
   uploadZone: document.querySelector("#uploadZone"),
   userAuth: document.querySelector("#userAuth"),
+  guestFooter: document.querySelector("#guestFooter"),
   userInitials: document.querySelector("#userInitials"),
   userName: document.querySelector("#userName")
 };
@@ -44,6 +60,21 @@ elements.loginForm.addEventListener("submit", handleLogin);
 elements.signupForm.addEventListener("submit", handleSignup);
 elements.forgotForm.addEventListener("submit", handleForgotPassword);
 elements.signOutButton.addEventListener("click", signOut);
+elements.memberAnalyzeButton.addEventListener("click", showMemberAnalyzer);
+elements.memberAnalyzeNavButton.addEventListener("click", showMemberAnalyzer);
+elements.memberDashboardButton.addEventListener("click", showMemberDashboard);
+elements.memberUploadButton.addEventListener("click", () => {
+  showMemberAnalyzer();
+  elements.fileInput.click();
+});
+elements.memberSampleButton.addEventListener("click", () => {
+  showMemberAnalyzer();
+  window.setTimeout(loadSampleData, 50);
+});
+elements.recentAnalyzeButton.addEventListener("click", showMemberAnalyzer);
+document.querySelectorAll("[data-member-view]").forEach((button) => {
+  button.addEventListener("click", () => button.dataset.memberView === "analyzer" ? showMemberAnalyzer() : showMemberDashboard());
+});
 document.querySelectorAll("[data-auth-view]").forEach((button) => {
   button.addEventListener("click", () => openAuthDialog(button.dataset.authView));
 });
@@ -441,15 +472,54 @@ function saveAuthUser(user, persist) {
 function renderAuthUser(user) {
   elements.guestAuth.hidden = Boolean(user);
   elements.userAuth.hidden = !user;
-  if (!user) return;
+  elements.primaryNav.hidden = Boolean(user);
+  elements.memberNav.hidden = !user;
+  if (!user) {
+    document.body.classList.remove("is-authenticated", "member-analysis-mode");
+    elements.memberApp.hidden = true;
+    elements.mainContent.hidden = false;
+    elements.guestFooter.hidden = false;
+    elements.skipLink.href = "#main-content";
+    return;
+  }
   elements.userName.textContent = user.name;
   elements.userInitials.textContent = getInitials(user.name);
+  elements.memberAvatar.textContent = getInitials(user.name);
+  elements.memberProfileName.textContent = user.name;
+  elements.memberProfileEmail.textContent = user.email;
+  elements.memberGreetingName.textContent = user.name.split(/\s+/)[0];
+  document.body.classList.add("is-authenticated");
+  showMemberDashboard();
+}
+
+function showMemberDashboard() {
+  document.body.classList.remove("member-analysis-mode");
+  elements.memberApp.hidden = false;
+  elements.mainContent.hidden = true;
+  elements.guestFooter.hidden = true;
+  elements.skipLink.href = "#memberApp";
+  elements.memberDashboardButton.classList.add("is-active");
+  elements.memberAnalyzeNavButton.classList.remove("is-active");
+  document.querySelectorAll("[data-member-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.memberView === "dashboard"));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showMemberAnalyzer() {
+  document.body.classList.add("member-analysis-mode");
+  elements.memberApp.hidden = true;
+  elements.mainContent.hidden = false;
+  elements.guestFooter.hidden = true;
+  elements.skipLink.href = "#workspace-title";
+  elements.memberDashboardButton.classList.remove("is-active");
+  elements.memberAnalyzeNavButton.classList.add("is-active");
+  window.setTimeout(() => document.querySelector("#workspace-title")?.scrollIntoView({ behavior: "smooth", block: "start" }), 20);
 }
 
 function signOut() {
   localStorage.removeItem("csv-insight-user");
   sessionStorage.removeItem("csv-insight-user");
   renderAuthUser(null);
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function formatNameFromEmail(email) {

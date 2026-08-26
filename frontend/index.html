@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <a class="skip-link" id="skipLink" href="#main-content">Skip to main content</a>
   <header class="site-header">
     <div class="container header-inner nav-shell">
       <a class="brand" href="#" aria-label="CSV Insight home">
@@ -21,6 +21,10 @@
         <a href="#main-content">Overview</a>
         <a href="#workspace-title">Workspace</a>
         <a href="#capabilities-title">Capabilities</a>
+      </nav>
+      <nav class="member-nav" id="memberNav" aria-label="Account navigation" hidden>
+        <button class="is-active" id="memberDashboardButton" type="button">Dashboard</button>
+        <button id="memberAnalyzeNavButton" type="button">Analyzer</button>
       </nav>
       <div class="header-actions">
         <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode" aria-pressed="false">
@@ -102,7 +106,68 @@
       </div>
     </section>
   </main>
-  <footer class="site-footer">
+  <main class="member-app" id="memberApp" hidden>
+    <div class="container member-shell">
+      <aside class="member-sidebar" aria-label="Workspace sections">
+        <div class="member-profile">
+          <span class="member-avatar" id="memberAvatar">CI</span>
+          <div><strong id="memberProfileName">CSV user</strong><span id="memberProfileEmail">Local account</span></div>
+        </div>
+        <nav class="member-menu">
+          <button class="is-active" type="button" data-member-view="dashboard"><span>Overview</span><small>Workspace home</small></button>
+          <button type="button" data-member-view="analyzer"><span>Analyze data</span><small>Open a CSV file</small></button>
+        </nav>
+        <div class="member-security-note">
+          <strong>Local processing</strong>
+          <p>Your CSV data stays inside this browser session.</p>
+        </div>
+      </aside>
+
+      <section class="member-content" aria-labelledby="member-title">
+        <header class="member-heading">
+          <div>
+            <p class="member-kicker">Personal workspace</p>
+            <h1 id="member-title">Welcome back, <span id="memberGreetingName">CSV user</span>.</h1>
+            <p>Continue from one focused place for private CSV analysis.</p>
+          </div>
+          <button class="button button-primary" id="memberAnalyzeButton" type="button">Analyze a CSV</button>
+        </header>
+
+        <div class="member-overview-grid">
+          <article class="member-action-card">
+            <div>
+              <p>Start an analysis</p>
+              <h2>Turn a raw CSV into a clear overview.</h2>
+              <span>Inspect structure, missing values, completeness, and individual records.</span>
+            </div>
+            <div class="member-card-actions">
+              <button class="button button-primary" id="memberUploadButton" type="button">Choose CSV file</button>
+              <button class="button button-secondary" id="memberSampleButton" type="button">Use sample data</button>
+            </div>
+          </article>
+
+          <aside class="member-status-card" aria-label="Workspace status">
+            <p>Workspace status</p>
+            <dl>
+              <div><dt>Session</dt><dd>Active</dd></div>
+              <div><dt>Storage</dt><dd>Browser only</dd></div>
+              <div><dt>Upload limit</dt><dd>10 MB</dd></div>
+            </dl>
+          </aside>
+        </div>
+
+        <section class="recent-panel" aria-labelledby="recent-files-title">
+          <header><div><p>Recent activity</p><h2 id="recent-files-title">Your analyzed files</h2></div><span>Stored files will appear here later</span></header>
+          <div class="recent-empty">
+            <strong>No recent files yet</strong>
+            <p>Analyze your first CSV to populate this workspace. File history will require the backend phase.</p>
+            <button class="text-action" id="recentAnalyzeButton" type="button">Start an analysis</button>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+  <footer class="site-footer" id="guestFooter">
     <div class="container footer-inner">
       <a class="brand footer-brand" href="#" aria-label="CSV Insight home"><span class="brand-mark small" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>CSV Insight</span></a>
       <p>Understand the file in front of you.</p>
