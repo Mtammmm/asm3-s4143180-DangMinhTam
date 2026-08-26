@@ -3,138 +3,213 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="CSV Insight helps you upload, preview, and quickly inspect CSV data.">
-  <title>CSV Insight — Data workspace</title>
+  <meta name="description" content="CSV Insight helps you preview, search, and inspect CSV data privately in your browser.">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>CSV Insight | Private CSV analysis</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
-
   <header class="site-header">
-    <div class="container header-inner">
-      <a class="brand" href="#" aria-label="CSV Insight - Home">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="img"><path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm0 5h14M9 4v16m5-11v11"/></svg>
-        </span>
-        <span>CSV Insight</span>
+    <div class="container header-inner nav-shell">
+      <a class="brand" href="#" aria-label="CSV Insight home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">CSV Insight</span>
       </a>
-
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="#main-content">Overview</a>
+        <a href="#workspace-title">Workspace</a>
+        <a href="#capabilities-title">Capabilities</a>
+      </nav>
       <div class="header-actions">
-        <div class="header-status" aria-label="System status">
-          <span class="status-dot" aria-hidden="true"></span>
-          Your data stays private
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode" aria-pressed="false">
+          <span class="theme-option">Light</span>
+          <span class="theme-option">Dark</span>
+        </button>
+        <div class="auth-guest" id="guestAuth">
+          <button class="auth-nav-link" type="button" data-auth-view="login">Sign in</button>
+          <button class="header-cta" type="button" data-auth-view="signup">Create account</button>
         </div>
-        <a class="header-link" href="#workspace-title">Open workspace
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
-        </a>
+        <div class="auth-user" id="userAuth" hidden>
+          <span class="user-badge"><strong id="userInitials">CI</strong><span id="userName">Account</span></span>
+          <button class="auth-nav-link" id="signOutButton" type="button">Sign out</button>
+        </div>
       </div>
     </div>
   </header>
-
   <main id="main-content">
-    <section class="hero container" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <p class="hero-kicker"><span aria-hidden="true"></span> Fast, private CSV analysis</p>
-        <h1 id="hero-title">Turn raw CSV files into <span>clear insight.</span></h1>
-        <p class="hero-description">Preview structure, spot missing values, and explore every row in a focused workspace—without sending your data anywhere.</p>
-        <div class="hero-actions">
-          <a class="button button-primary button-large" href="#workspace-title">Analyze a CSV
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
-          </a>
-          <button class="button button-secondary button-large" id="heroSampleButton" type="button">Explore sample data</button>
+    <div class="landing-fold">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Private CSV analysis</p>
+          <h1 id="hero-title">Raw data. <span>Clear answers.</span></h1>
+          <p class="hero-description">Preview structure, find missing values, and search every row without uploading your file to a server.</p>
+          <div class="hero-actions">
+            <a class="button button-primary button-large" href="#workspace-title">Analyze a CSV</a>
+            <button class="button button-secondary button-large" id="heroSampleButton" type="button">Try sample data</button>
+          </div>
         </div>
-        <ul class="hero-trust" aria-label="Product benefits">
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>No account needed</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>100% browser-based</li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>Up to 10 MB</li>
-        </ul>
-      </div>
-
-      <aside class="pipeline-card" aria-label="Data processing architecture">
-        <div class="pipeline-header">
-          <div><p class="card-label">Workspace preview</p><strong>Processing pipeline</strong></div>
-          <span class="live-badge"><i aria-hidden="true"></i> Ready</span>
-        </div>
-        <ol class="pipeline-list">
-          <li class="is-active"><span class="pipeline-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM8 22h8M12 18v4"/></svg></span><div><strong>Upload securely</strong><small>File validation in your browser</small></div><b>01</b></li>
-          <li><span class="pipeline-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16M8 3v4M16 10v4M11 17v4"/></svg></span><div><strong>Parse instantly</strong><small>Rows and columns structured locally</small></div><b>02</b></li>
-          <li><span class="pipeline-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span><div><strong>Explore clearly</strong><small>Quality metrics and live search</small></div><b>03</b></li>
-        </ol>
-        <div class="pipeline-footer"><span>Private session</span><span>AES-ready architecture</span></div>
-      </aside>
-    </section>
-
+        <figure class="hero-visual">
+          <img src="csv-insight-hero.png" width="1536" height="1024" fetchpriority="high" decoding="async" alt="Layered cobalt data grids and paper records organized beneath a clear glass prism">
+        </figure>
+      </section>
+    </div>
     <section class="workspace container" aria-labelledby="workspace-title">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Step 01</p>
-          <h2 id="workspace-title">Choose data to analyze</h2>
+          <h2 id="workspace-title">Bring your data into focus.</h2>
+          <p>Choose a CSV file or open the sample dataset.</p>
         </div>
-        <button class="button button-ghost" id="loadSampleButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 5v14"/></svg>Use sample data</button>
+        <button class="text-action" id="loadSampleButton" type="button">Use sample data</button>
       </div>
-
       <div class="upload-zone" id="uploadZone">
         <input id="fileInput" type="file" accept=".csv,text/csv" hidden>
-        <div class="upload-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
-        </div>
-        <p class="upload-label">CSV uploader</p>
-        <h3>Drop your CSV file here</h3>
+        <span class="upload-symbol" aria-hidden="true"><i></i></span>
+        <h3>Drop your CSV here</h3>
         <p>or browse your device to start exploring</p>
         <button class="button button-primary" id="browseButton" type="button">Choose CSV file</button>
-        <small>Up to 10 MB · data is processed locally in this demo</small>
+        <small>CSV format only <span aria-hidden="true">/</span> Maximum 10 MB <span aria-hidden="true">/</span> Local processing</small>
       </div>
-
       <div class="message" id="message" role="status" aria-live="polite" hidden></div>
     </section>
-
     <section class="results container" id="results" aria-labelledby="results-title" hidden>
       <div class="section-heading results-heading">
         <div>
-          <p class="eyebrow">Step 02</p>
           <h2 id="results-title">Data overview</h2>
           <p class="file-meta" id="fileMeta"></p>
         </div>
-        <button class="icon-button" id="resetButton" type="button" aria-label="Close results and choose another file" title="Choose another file">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-        </button>
+        <button class="close-button" id="resetButton" type="button">Choose another file</button>
       </div>
-
       <div class="stats-grid" id="statsGrid"></div>
-
-      <div class="table-card">
+      <div class="table-panel">
         <div class="table-toolbar">
-          <div>
-            <h3>Data preview</h3>
-            <p id="rowSummary">Showing the first rows</p>
-          </div>
-          <label class="search-field">
-            <span class="sr-only">Search the data</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
-            <input id="searchInput" type="search" placeholder="Search the table..." autocomplete="off">
-          </label>
+          <div><h3>Data preview</h3><p id="rowSummary">Showing the first rows</p></div>
+          <label class="search-field"><span>Search data</span><input id="searchInput" type="search" placeholder="Search by name, city or status" autocomplete="off"></label>
         </div>
-        <div class="table-wrap" tabindex="0" aria-label="CSV data preview table">
-          <table id="dataTable"></table>
-        </div>
+        <div class="table-wrap" tabindex="0" aria-label="CSV data preview table"><table id="dataTable"></table></div>
       </div>
     </section>
-
-    <section class="empty-state container" id="emptyState" aria-label="Key features">
-      <article><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg></span><div><small>01 / PRIVATE</small><h3>Safe by design</h3><p>Your file is validated and processed directly inside your browser.</p></div></article>
-      <article><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 5v14"/></svg></span><div><small>02 / INSTANT</small><h3>See data clearly</h3><p>Review headers, sample records, completeness, and missing values at a glance.</p></div></article>
-      <article><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg></span><div><small>03 / SCALABLE</small><h3>Built to grow</h3><p>A clean frontend architecture ready for Flask, pandas, and AWS integration.</p></div></article>
+    <section class="capabilities container" id="emptyState" aria-labelledby="capabilities-title">
+      <div class="capability-lead">
+        <h2 id="capabilities-title">A smaller tool with a sharper purpose.</h2>
+        <p>CSV Insight keeps the path from file to understanding short.</p>
+      </div>
+      <div class="capability-list">
+        <article><strong>Validate before reading</strong><p>File type and size are checked before processing begins.</p></article>
+        <article><strong>See quality immediately</strong><p>Rows, columns, empty cells, and completeness appear together.</p></article>
+        <article><strong>Find any record fast</strong><p>Search across every field without configuring filters first.</p></article>
+      </div>
     </section>
   </main>
-
   <footer class="site-footer">
-    <div class="container"><span>CSV Insight</span><span>HTML · CSS · JavaScript</span></div>
+    <div class="container footer-inner">
+      <a class="brand footer-brand" href="#" aria-label="CSV Insight home"><span class="brand-mark small" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>CSV Insight</span></a>
+      <p>Understand the file in front of you.</p>
+    </div>
   </footer>
 
+  <dialog class="auth-dialog" id="authDialog" aria-label="Account access">
+    <div class="auth-layout">
+      <aside class="auth-context">
+        <a class="brand auth-brand" href="#" tabindex="-1">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span>CSV Insight</span>
+        </a>
+        <div>
+          <p>One workspace for the files that need a closer look.</p>
+          <ul>
+            <li>Keep recent analyses organized</li>
+            <li>Return to saved workspace settings</li>
+            <li>Prepare for secure cloud sync later</li>
+          </ul>
+        </div>
+        <small>Frontend demo only. No credentials are sent or stored.</small>
+      </aside>
+
+      <section class="auth-panel">
+        <button class="auth-close" id="authCloseButton" type="button" aria-label="Close account dialog">Close</button>
+
+        <div class="auth-view" data-auth-panel="login">
+          <header class="auth-heading">
+            <p>Welcome back</p>
+            <h2>Sign in to CSV Insight</h2>
+            <span>Use any valid email and a password with at least 8 characters for this demo.</span>
+          </header>
+          <form class="auth-form" id="loginForm" novalidate>
+            <div class="form-field">
+              <label for="loginEmail">Email address</label>
+              <input id="loginEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="loginEmailError">
+              <span class="field-error" id="loginEmailError"></span>
+            </div>
+            <div class="form-field">
+              <div class="field-label-row"><label for="loginPassword">Password</label><button class="inline-action" type="button" data-auth-view="forgot">Forgot password?</button></div>
+              <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="8" required aria-describedby="loginPasswordError">
+              <span class="field-error" id="loginPasswordError"></span>
+            </div>
+            <label class="check-field"><input id="rememberAccount" name="remember" type="checkbox"><span>Remember this demo session</span></label>
+            <div class="auth-form-message" id="loginMessage" role="status" aria-live="polite"></div>
+            <button class="button button-primary auth-submit" type="submit">Sign in</button>
+          </form>
+          <p class="auth-switch">New to CSV Insight? <button type="button" data-auth-view="signup">Create an account</button></p>
+        </div>
+
+        <div class="auth-view" data-auth-panel="signup" hidden>
+          <header class="auth-heading">
+            <p>Create your workspace</p>
+            <h2>Start with CSV Insight</h2>
+            <span>Your demo profile stays in this browser until backend authentication is added.</span>
+          </header>
+          <form class="auth-form" id="signupForm" novalidate>
+            <div class="form-field">
+              <label for="signupName">Full name</label>
+              <input id="signupName" name="name" type="text" autocomplete="name" placeholder="Your full name" minlength="2" required aria-describedby="signupNameError">
+              <span class="field-error" id="signupNameError"></span>
+            </div>
+            <div class="form-field">
+              <label for="signupEmail">Email address</label>
+              <input id="signupEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="signupEmailError">
+              <span class="field-error" id="signupEmailError"></span>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="signupPassword">Password</label>
+                <input id="signupPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required aria-describedby="signupPasswordError">
+                <span class="field-error" id="signupPasswordError"></span>
+              </div>
+              <div class="form-field">
+                <label for="signupConfirmPassword">Confirm password</label>
+                <input id="signupConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Repeat your password" minlength="8" required aria-describedby="signupConfirmPasswordError">
+                <span class="field-error" id="signupConfirmPasswordError"></span>
+              </div>
+            </div>
+            <label class="check-field"><input id="acceptTerms" name="terms" type="checkbox" required><span>I agree to the demo terms and privacy notice.</span></label>
+            <div class="auth-form-message" id="signupMessage" role="status" aria-live="polite"></div>
+            <button class="button button-primary auth-submit" type="submit">Create account</button>
+          </form>
+          <p class="auth-switch">Already have an account? <button type="button" data-auth-view="login">Sign in</button></p>
+        </div>
+
+        <div class="auth-view" data-auth-panel="forgot" hidden>
+          <header class="auth-heading">
+            <p>Account recovery</p>
+            <h2>Reset your password</h2>
+            <span>Enter your email to preview the recovery flow. No email will be sent yet.</span>
+          </header>
+          <form class="auth-form" id="forgotForm" novalidate>
+            <div class="form-field">
+              <label for="forgotEmail">Email address</label>
+              <input id="forgotEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="forgotEmailError">
+              <span class="field-error" id="forgotEmailError"></span>
+            </div>
+            <div class="auth-form-message" id="forgotMessage" role="status" aria-live="polite"></div>
+            <button class="button button-primary auth-submit" type="submit">Preview reset request</button>
+          </form>
+          <p class="auth-switch"><button type="button" data-auth-view="login">Return to sign in</button></p>
+        </div>
+      </section>
+    </div>
+  </dialog>
   <script src="app.js" defer></script>
 </body>
 </html>

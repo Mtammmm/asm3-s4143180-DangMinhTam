@@ -2,20 +2,31 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_PREVIEW_ROWS = 100;
 
 const elements = {
+  authCloseButton: document.querySelector("#authCloseButton"),
+  authDialog: document.querySelector("#authDialog"),
   browseButton: document.querySelector("#browseButton"),
   dataTable: document.querySelector("#dataTable"),
   emptyState: document.querySelector("#emptyState"),
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
+  forgotForm: document.querySelector("#forgotForm"),
+  guestAuth: document.querySelector("#guestAuth"),
   heroSampleButton: document.querySelector("#heroSampleButton"),
+  loginForm: document.querySelector("#loginForm"),
   loadSampleButton: document.querySelector("#loadSampleButton"),
   message: document.querySelector("#message"),
   resetButton: document.querySelector("#resetButton"),
   results: document.querySelector("#results"),
   rowSummary: document.querySelector("#rowSummary"),
   searchInput: document.querySelector("#searchInput"),
+  signOutButton: document.querySelector("#signOutButton"),
+  signupForm: document.querySelector("#signupForm"),
   statsGrid: document.querySelector("#statsGrid"),
-  uploadZone: document.querySelector("#uploadZone")
+  themeToggle: document.querySelector("#themeToggle"),
+  uploadZone: document.querySelector("#uploadZone"),
+  userAuth: document.querySelector("#userAuth"),
+  userInitials: document.querySelector("#userInitials"),
+  userName: document.querySelector("#userName")
 };
 
 let currentDataset = { headers: [], rows: [] };
@@ -26,6 +37,19 @@ elements.loadSampleButton.addEventListener("click", loadSampleData);
 elements.heroSampleButton.addEventListener("click", loadSampleData);
 elements.resetButton.addEventListener("click", resetWorkspace);
 elements.searchInput.addEventListener("input", filterRows);
+elements.themeToggle.addEventListener("click", toggleTheme);
+elements.authCloseButton.addEventListener("click", closeAuthDialog);
+elements.authDialog.addEventListener("click", handleDialogBackdropClick);
+elements.loginForm.addEventListener("submit", handleLogin);
+elements.signupForm.addEventListener("submit", handleSignup);
+elements.forgotForm.addEventListener("submit", handleForgotPassword);
+elements.signOutButton.addEventListener("click", signOut);
+document.querySelectorAll("[data-auth-view]").forEach((button) => {
+  button.addEventListener("click", () => openAuthDialog(button.dataset.authView));
+});
+
+initializeTheme();
+initializeAuth();
 
 ["dragenter", "dragover"].forEach((eventName) => {
   elements.uploadZone.addEventListener(eventName, (event) => {
@@ -139,14 +163,12 @@ function renderStats(dataset) {
     card.className = `stat-card stat-${type}`;
     const top = document.createElement("div");
     const labelElement = document.createElement("span");
-    const marker = document.createElement("i");
     const valueElement = document.createElement("strong");
     const hintElement = document.createElement("small");
     labelElement.textContent = label;
-    marker.setAttribute("aria-hidden", "true");
     valueElement.textContent = value;
     hintElement.textContent = hint;
-    top.append(labelElement, marker);
+    top.append(labelElement);
     card.append(top, valueElement, hintElement);
     return card;
   }));
@@ -230,4 +252,212 @@ function formatBytes(bytes) {
   const units = ["B", "KB", "MB"];
   const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / (1024 ** unitIndex)).toFixed(unitIndex ? 1 : 0)} ${units[unitIndex]}`;
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem("csv-insight-theme");
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = savedTheme || (systemDark ? "dark" : "light");
+  applyTheme(theme);
+}
+
+function toggleTheme() {
+  const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem("csv-insight-theme", nextTheme);
+  applyTheme(nextTheme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  elements.themeToggle.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} mode`);
+  elements.themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+  document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#0d1117" : "#f4f6f8";
+}
+
+function initializeAuth() {
+  const savedUser = localStorage.getItem("csv-insight-user") || sessionStorage.getItem("csv-insight-user");
+  if (!savedUser) {
+    renderAuthUser(null);
+    return;
+  }
+
+  try {
+    renderAuthUser(JSON.parse(savedUser));
+  } catch {
+    localStorage.removeItem("csv-insight-user");
+    sessionStorage.removeItem("csv-insight-user");
+    renderAuthUser(null);
+  }
+}
+
+function openAuthDialog(view = "login") {
+  switchAuthView(view);
+  if (!elements.authDialog.open) elements.authDialog.showModal();
+  window.setTimeout(() => {
+    const firstInput = elements.authDialog.querySelector(`[data-auth-panel="${view}"] input`);
+    firstInput?.focus();
+  }, 30);
+}
+
+function closeAuthDialog() {
+  if (elements.authDialog.open) elements.authDialog.close();
+}
+
+function handleDialogBackdropClick(event) {
+  if (event.target === elements.authDialog) closeAuthDialog();
+}
+
+function switchAuthView(view) {
+  const validView = ["login", "signup", "forgot"].includes(view) ? view : "login";
+  document.querySelectorAll("[data-auth-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.authPanel !== validView;
+  });
+  clearAuthFeedback();
+}
+
+function clearAuthFeedback() {
+  document.querySelectorAll(".field-error").forEach((element) => {
+    element.textContent = "";
+  });
+  document.querySelectorAll(".auth-form-message").forEach((element) => {
+    element.textContent = "";
+    element.className = "auth-form-message";
+  });
+  elements.authDialog.querySelectorAll("[aria-invalid]").forEach((input) => input.removeAttribute("aria-invalid"));
+}
+
+function setFieldError(input, message) {
+  const errorElement = document.querySelector(`#${input.getAttribute("aria-describedby")}`);
+  input.setAttribute("aria-invalid", String(Boolean(message)));
+  if (errorElement) errorElement.textContent = message;
+  return !message;
+}
+
+function validateEmail(input) {
+  const email = input.value.trim();
+  if (!email) return setFieldError(input, "Enter your email address.");
+  if (!input.validity.valid) return setFieldError(input, "Enter a valid email address.");
+  return setFieldError(input, "");
+}
+
+function validatePassword(input) {
+  if (!input.value) return setFieldError(input, "Enter your password.");
+  if (input.value.length < 8) return setFieldError(input, "Use at least 8 characters.");
+  return setFieldError(input, "");
+}
+
+function setFormMessage(elementId, message, type = "") {
+  const element = document.querySelector(`#${elementId}`);
+  element.textContent = message;
+  element.className = `auth-form-message${type ? ` ${type}` : ""}`;
+}
+
+function setSubmitState(form, loading, label) {
+  const button = form.querySelector('button[type="submit"]');
+  if (!button.dataset.defaultLabel) button.dataset.defaultLabel = button.textContent;
+  button.disabled = loading;
+  button.textContent = loading ? label : button.dataset.defaultLabel;
+}
+
+function handleLogin(event) {
+  event.preventDefault();
+  clearAuthFeedback();
+  const emailInput = elements.loginForm.elements.email;
+  const passwordInput = elements.loginForm.elements.password;
+  const emailValid = validateEmail(emailInput);
+  const passwordValid = validatePassword(passwordInput);
+  const isValid = emailValid && passwordValid;
+  if (!isValid) {
+    setFormMessage("loginMessage", "Check the highlighted fields and try again.", "error");
+    elements.loginForm.querySelector('[aria-invalid="true"]')?.focus();
+    return;
+  }
+
+  setSubmitState(elements.loginForm, true, "Signing in");
+  window.setTimeout(() => {
+    const email = emailInput.value.trim();
+    const user = { name: formatNameFromEmail(email), email };
+    saveAuthUser(user, elements.loginForm.elements.remember.checked);
+    setSubmitState(elements.loginForm, false, "");
+    setFormMessage("loginMessage", "Signed in successfully. This is a local demo session.", "success");
+    window.setTimeout(closeAuthDialog, 650);
+  }, 650);
+}
+
+function handleSignup(event) {
+  event.preventDefault();
+  clearAuthFeedback();
+  const { name, email, password, confirmPassword, terms } = elements.signupForm.elements;
+  const nameValid = name.value.trim().length >= 2
+    ? setFieldError(name, "")
+    : setFieldError(name, "Enter at least 2 characters.");
+  const emailValid = validateEmail(email);
+  const passwordValid = validatePassword(password);
+  const confirmValid = confirmPassword.value === password.value && confirmPassword.value
+    ? setFieldError(confirmPassword, "")
+    : setFieldError(confirmPassword, "Passwords must match.");
+
+  if (!nameValid || !emailValid || !passwordValid || !confirmValid || !terms.checked) {
+    setFormMessage("signupMessage", terms.checked ? "Check the highlighted fields and try again." : "Accept the demo terms to continue.", "error");
+    elements.signupForm.querySelector('[aria-invalid="true"]')?.focus();
+    return;
+  }
+
+  setSubmitState(elements.signupForm, true, "Creating account");
+  window.setTimeout(() => {
+    const user = { name: name.value.trim(), email: email.value.trim() };
+    saveAuthUser(user, true);
+    setSubmitState(elements.signupForm, false, "");
+    setFormMessage("signupMessage", "Account created for this frontend demo. No password was stored.", "success");
+    window.setTimeout(closeAuthDialog, 750);
+  }, 700);
+}
+
+function handleForgotPassword(event) {
+  event.preventDefault();
+  clearAuthFeedback();
+  const emailInput = elements.forgotForm.elements.email;
+  if (!validateEmail(emailInput)) {
+    setFormMessage("forgotMessage", "Enter a valid email address to continue.", "error");
+    emailInput.focus();
+    return;
+  }
+
+  setSubmitState(elements.forgotForm, true, "Preparing request");
+  window.setTimeout(() => {
+    setSubmitState(elements.forgotForm, false, "");
+    setFormMessage("forgotMessage", "Reset request preview complete. Connect a backend later to send the email.", "success");
+  }, 650);
+}
+
+function saveAuthUser(user, persist) {
+  localStorage.removeItem("csv-insight-user");
+  sessionStorage.removeItem("csv-insight-user");
+  const storage = persist ? localStorage : sessionStorage;
+  storage.setItem("csv-insight-user", JSON.stringify(user));
+  renderAuthUser(user);
+}
+
+function renderAuthUser(user) {
+  elements.guestAuth.hidden = Boolean(user);
+  elements.userAuth.hidden = !user;
+  if (!user) return;
+  elements.userName.textContent = user.name;
+  elements.userInitials.textContent = getInitials(user.name);
+}
+
+function signOut() {
+  localStorage.removeItem("csv-insight-user");
+  sessionStorage.removeItem("csv-insight-user");
+  renderAuthUser(null);
+}
+
+function formatNameFromEmail(email) {
+  const base = email.split("@")[0].replace(/[._-]+/g, " ").trim();
+  if (!base) return "CSV user";
+  return base.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function getInitials(name) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join("") || "CI";
 }
