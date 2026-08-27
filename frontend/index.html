@@ -157,10 +157,17 @@
         </div>
 
         <section class="recent-panel" aria-labelledby="recent-files-title">
-          <header><div><p>Recent activity</p><h2 id="recent-files-title">Your analyzed files</h2></div><span>Stored files will appear here later</span></header>
-          <div class="recent-empty">
+          <header><div><p>Dataset library</p><h2 id="recent-files-title">Your analyzed files</h2></div><button class="text-action" id="refreshDatasetsButton" type="button">Refresh</button></header>
+          <div class="dataset-toolbar">
+            <label><span>Search datasets</span><input id="datasetSearchInput" type="search" placeholder="Search by file name" autocomplete="off"></label>
+            <span id="datasetCount">0 datasets</span>
+          </div>
+          <div class="dataset-loading" id="datasetLoading" role="status"><i></i><i></i><i></i><span>Loading datasets</span></div>
+          <div class="dataset-error" id="datasetError" role="alert" hidden><strong>Datasets could not be loaded</strong><p id="datasetErrorMessage"></p><button class="text-action" id="retryDatasetsButton" type="button">Try again</button></div>
+          <div class="dataset-list" id="datasetList" aria-live="polite"></div>
+          <div class="recent-empty" id="datasetEmpty" hidden>
             <strong>No recent files yet</strong>
-            <p>Analyze your first CSV to populate this workspace. File history will require the backend phase.</p>
+            <p>Analyze your first CSV to populate this workspace.</p>
             <button class="text-action" id="recentAnalyzeButton" type="button">Start an analysis</button>
           </div>
         </section>
@@ -275,6 +282,39 @@
       </section>
     </div>
   </dialog>
+  <dialog class="dataset-dialog" id="datasetDialog" aria-labelledby="datasetDialogTitle">
+    <div class="dataset-dialog-shell">
+      <header class="dataset-dialog-header">
+        <div><p>Dataset details</p><h2 id="datasetDialogTitle">Dataset</h2><span id="datasetDialogMeta"></span></div>
+        <button class="auth-close" id="datasetDialogClose" type="button">Close</button>
+      </header>
+      <div class="dataset-detail-loading" id="datasetDetailLoading" role="status">Loading dataset details</div>
+      <div id="datasetDetailContent" hidden>
+        <div class="dataset-detail-stats" id="datasetDetailStats"></div>
+        <form class="query-builder" id="queryForm">
+          <div><p>Simple analytical query</p><h3>Filter this dataset</h3></div>
+          <label><span>Column</span><select id="queryColumn" name="column" required></select></label>
+          <label><span>Condition</span><select id="queryOperator" name="operator"><option value="contains">Contains</option><option value="equals">Equals</option><option value="greater">Greater than</option><option value="less">Less than</option><option value="empty">Is empty</option></select></label>
+          <label id="queryValueField"><span>Value</span><input id="queryValue" name="value" type="text" placeholder="Enter a comparison value"></label>
+          <button class="button button-primary" type="submit">Run query</button>
+        </form>
+        <div class="query-message" id="queryMessage" role="status" aria-live="polite"></div>
+        <div class="table-wrap dataset-preview-wrap" tabindex="0"><table id="datasetDetailTable"></table></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="confirm-dialog" id="deleteDialog" aria-labelledby="deleteDialogTitle">
+    <form method="dialog" class="confirm-dialog-panel" id="deleteForm">
+      <p>Delete dataset</p>
+      <h2 id="deleteDialogTitle">Remove this dataset?</h2>
+      <span id="deleteDialogMessage"></span>
+      <div class="confirm-actions"><button class="button button-secondary" value="cancel" type="button" id="cancelDeleteButton">Cancel</button><button class="button danger-button" type="submit">Delete dataset</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="api.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

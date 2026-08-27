@@ -6,6 +6,24 @@ const elements = {
   authDialog: document.querySelector("#authDialog"),
   browseButton: document.querySelector("#browseButton"),
   dataTable: document.querySelector("#dataTable"),
+  datasetCount: document.querySelector("#datasetCount"),
+  datasetDetailContent: document.querySelector("#datasetDetailContent"),
+  datasetDetailLoading: document.querySelector("#datasetDetailLoading"),
+  datasetDetailStats: document.querySelector("#datasetDetailStats"),
+  datasetDetailTable: document.querySelector("#datasetDetailTable"),
+  datasetDialog: document.querySelector("#datasetDialog"),
+  datasetDialogClose: document.querySelector("#datasetDialogClose"),
+  datasetDialogMeta: document.querySelector("#datasetDialogMeta"),
+  datasetDialogTitle: document.querySelector("#datasetDialogTitle"),
+  datasetEmpty: document.querySelector("#datasetEmpty"),
+  datasetError: document.querySelector("#datasetError"),
+  datasetErrorMessage: document.querySelector("#datasetErrorMessage"),
+  datasetList: document.querySelector("#datasetList"),
+  datasetLoading: document.querySelector("#datasetLoading"),
+  datasetSearchInput: document.querySelector("#datasetSearchInput"),
+  deleteDialog: document.querySelector("#deleteDialog"),
+  deleteDialogMessage: document.querySelector("#deleteDialogMessage"),
+  deleteForm: document.querySelector("#deleteForm"),
   emptyState: document.querySelector("#emptyState"),
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
@@ -28,7 +46,15 @@ const elements = {
   memberSampleButton: document.querySelector("#memberSampleButton"),
   memberUploadButton: document.querySelector("#memberUploadButton"),
   primaryNav: document.querySelector(".primary-nav"),
+  queryColumn: document.querySelector("#queryColumn"),
+  queryForm: document.querySelector("#queryForm"),
+  queryMessage: document.querySelector("#queryMessage"),
+  queryOperator: document.querySelector("#queryOperator"),
+  queryValue: document.querySelector("#queryValue"),
+  queryValueField: document.querySelector("#queryValueField"),
   recentAnalyzeButton: document.querySelector("#recentAnalyzeButton"),
+  refreshDatasetsButton: document.querySelector("#refreshDatasetsButton"),
+  retryDatasetsButton: document.querySelector("#retryDatasetsButton"),
   resetButton: document.querySelector("#resetButton"),
   results: document.querySelector("#results"),
   rowSummary: document.querySelector("#rowSummary"),
@@ -38,6 +64,7 @@ const elements = {
   signupForm: document.querySelector("#signupForm"),
   statsGrid: document.querySelector("#statsGrid"),
   themeToggle: document.querySelector("#themeToggle"),
+  toast: document.querySelector("#toast"),
   uploadZone: document.querySelector("#uploadZone"),
   userAuth: document.querySelector("#userAuth"),
   guestFooter: document.querySelector("#guestFooter"),
@@ -46,6 +73,10 @@ const elements = {
 };
 
 let currentDataset = { headers: [], rows: [] };
+let currentUser = null;
+let datasetSummaries = [];
+let selectedDataset = null;
+let pendingDeleteDataset = null;
 
 elements.browseButton.addEventListener("click", () => elements.fileInput.click());
 elements.fileInput.addEventListener("change", (event) => handleFile(event.target.files[0]));
@@ -60,6 +91,14 @@ elements.loginForm.addEventListener("submit", handleLogin);
 elements.signupForm.addEventListener("submit", handleSignup);
 elements.forgotForm.addEventListener("submit", handleForgotPassword);
 elements.signOutButton.addEventListener("click", signOut);
+elements.datasetDialogClose.addEventListener("click", () => elements.datasetDialog.close());
+elements.datasetSearchInput.addEventListener("input", renderDatasetLibrary);
+elements.deleteForm.addEventListener("submit", confirmDeleteDataset);
+document.querySelector("#cancelDeleteButton").addEventListener("click", () => elements.deleteDialog.close());
+elements.queryForm.addEventListener("submit", runDatasetQuery);
+elements.queryOperator.addEventListener("change", updateQueryValueVisibility);
+elements.refreshDatasetsButton.addEventListener("click", loadDatasetLibrary);
+elements.retryDatasetsButton.addEventListener("click", loadDatasetLibrary);
 elements.memberAnalyzeButton.addEventListener("click", showMemberAnalyzer);
 elements.memberAnalyzeNavButton.addEventListener("click", showMemberAnalyzer);
 elements.memberDashboardButton.addEventListener("click", showMemberDashboard);
@@ -110,13 +149,18 @@ function handleFile(file) {
     showMessage("The file exceeds the 10 MB limit.", "error");
     return;
   }
+  showMessage(`Reading ${file.name} and preparing its analysis.`, "loading");
 
   const reader = new FileReader();
-  reader.addEventListener("load", () => {
+  reader.addEventListener("load", async () => {
     try {
       const dataset = parseCSV(String(reader.result));
       if (!dataset.headers.length || !dataset.rows.length) throw new Error("The file does not contain valid data.");
       displayDataset(dataset, file.name, file.size);
+      if (currentUser) {
+        await DatasetApi.createDataset({ owner: currentUser.email, name: file.name, size: file.size, headers: dataset.headers, rows: dataset.rows });
+        await loadDatasetLibrary({ silent: true });
+      }
       showMessage(`${file.name} was loaded successfully.`, "success");
     } catch (error) {
       showMessage(error.message || "This CSV file could not be read.", "error");
@@ -127,21 +171,23 @@ function handleFile(file) {
 }
 
 function parseCSV(text) {
+  const source = text.replace(/^\uFEFF/, "");
+  const delimiter = detectDelimiter(source);
   const lines = [];
   let row = [];
   let field = "";
   let quoted = false;
 
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
 
     if (char === '"' && quoted && next === '"') {
       field += '"';
       index += 1;
     } else if (char === '"') {
       quoted = !quoted;
-    } else if (char === "," && !quoted) {
+    } else if (char === delimiter && !quoted) {
       row.push(field.trim());
       field = "";
     } else if ((char === "\n" || char === "\r") && !quoted) {
@@ -165,6 +211,29 @@ function parseCSV(text) {
     headers: normalizedHeaders,
     rows: rows.map((values) => normalizedHeaders.map((_, index) => values[index] ?? ""))
   };
+}
+
+function detectDelimiter(text) {
+  const candidates = [",", ";", "\t", "|"];
+  const counts = new Map(candidates.map((candidate) => [candidate, 0]));
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+    if (character === '"' && quoted && next === '"') {
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (!quoted && (character === "\n" || character === "\r")) break;
+    if (!quoted && counts.has(character)) counts.set(character, counts.get(character) + 1);
+  }
+
+  return candidates.reduce((best, candidate) => counts.get(candidate) > counts.get(best) ? candidate : best, ",");
 }
 
 function displayDataset(dataset, fileName, fileSize) {
@@ -243,7 +312,7 @@ function filterRows(event) {
   renderTable(filtered.slice(0, MAX_PREVIEW_ROWS));
 }
 
-function loadSampleData() {
+async function loadSampleData() {
   const sample = [
     ["order_id", "customer", "city", "amount", "status"],
     ["ORD-1001", "Alex Morgan", "Melbourne", "1250000", "Completed"],
@@ -254,6 +323,15 @@ function loadSampleData() {
   ];
   const [headers, ...rows] = sample;
   displayDataset({ headers, rows }, "sample-orders.csv", 348);
+  if (currentUser) {
+    try {
+      await DatasetApi.createDataset({ owner: currentUser.email, name: "sample-orders.csv", size: 348, headers, rows });
+      await loadDatasetLibrary({ silent: true });
+    } catch (error) {
+      showMessage(error.message, "error");
+      return;
+    }
+  }
   showMessage("Sample data is ready for you to explore.", "success");
 }
 
@@ -283,6 +361,219 @@ function formatBytes(bytes) {
   const units = ["B", "KB", "MB"];
   const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / (1024 ** unitIndex)).toFixed(unitIndex ? 1 : 0)} ${units[unitIndex]}`;
+}
+
+async function loadDatasetLibrary(options = {}) {
+  if (!currentUser) return;
+  const silent = options && options.silent === true;
+  if (!silent) {
+    elements.datasetLoading.hidden = false;
+    elements.datasetList.hidden = true;
+    elements.datasetEmpty.hidden = true;
+    elements.datasetError.hidden = true;
+  }
+  try {
+    datasetSummaries = await DatasetApi.listDatasets(currentUser.email);
+    elements.datasetError.hidden = true;
+    renderDatasetLibrary();
+  } catch (error) {
+    elements.datasetErrorMessage.textContent = error.message || "Please try again.";
+    elements.datasetError.hidden = false;
+    elements.datasetList.hidden = true;
+    elements.datasetEmpty.hidden = true;
+  } finally {
+    elements.datasetLoading.hidden = true;
+  }
+}
+
+function renderDatasetLibrary() {
+  const query = elements.datasetSearchInput.value.trim().toLocaleLowerCase("en");
+  const datasets = query
+    ? datasetSummaries.filter((dataset) => dataset.name.toLocaleLowerCase("en").includes(query))
+    : datasetSummaries;
+  elements.datasetCount.textContent = `${datasets.length} ${datasets.length === 1 ? "dataset" : "datasets"}`;
+  elements.datasetList.hidden = datasets.length === 0;
+  elements.datasetEmpty.hidden = datasets.length > 0;
+  if (!datasets.length) {
+    elements.datasetEmpty.querySelector("strong").textContent = query ? "No matching datasets" : "No recent files yet";
+    elements.datasetEmpty.querySelector("p").textContent = query
+      ? "Try a different file name or clear the search field."
+      : "Analyze your first CSV to populate this workspace.";
+    return;
+  }
+
+  elements.datasetList.replaceChildren(...datasets.map((dataset) => {
+    const row = document.createElement("article");
+    row.className = "dataset-row";
+    const identity = document.createElement("div");
+    identity.className = "dataset-identity";
+    const mark = document.createElement("span");
+    mark.textContent = "CSV";
+    const copy = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = dataset.name;
+    const meta = document.createElement("small");
+    meta.textContent = `${formatBytes(dataset.size)} / ${formatDate(dataset.createdAt)}`;
+    const status = document.createElement("span");
+    status.className = `dataset-status ${dataset.status || "processing"}`;
+    status.textContent = dataset.status || "processing";
+    copy.append(name, meta, status);
+    identity.append(mark, copy);
+
+    const metrics = document.createElement("div");
+    metrics.className = "dataset-row-metrics";
+    if (dataset.status === "ready" && dataset.stats) {
+      metrics.innerHTML = `<span><strong>${dataset.stats.rows.toLocaleString("en-US")}</strong> rows</span><span><strong>${dataset.stats.columns}</strong> columns</span><span><strong>${dataset.stats.completeness}%</strong> complete</span>`;
+    } else {
+      metrics.classList.add("dataset-processing-copy");
+      metrics.textContent = dataset.status === "failed" ? "Processing failed. Delete the dataset or upload it again." : "Statistics are being prepared.";
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "dataset-row-actions";
+    const viewButton = document.createElement("button");
+    viewButton.className = "button button-secondary compact-button";
+    viewButton.type = "button";
+    viewButton.textContent = "View and query";
+    viewButton.disabled = dataset.status !== "ready";
+    viewButton.addEventListener("click", () => openDatasetDetails(dataset.id));
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "dataset-delete-button";
+    deleteButton.type = "button";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", () => openDeleteDialog(dataset));
+    actions.append(viewButton, deleteButton);
+    row.append(identity, metrics, actions);
+    return row;
+  }));
+}
+
+async function openDatasetDetails(datasetId) {
+  elements.datasetDialog.showModal();
+  elements.datasetDetailLoading.textContent = "Loading dataset details";
+  elements.datasetDetailLoading.hidden = false;
+  elements.datasetDetailContent.hidden = true;
+  elements.queryMessage.textContent = "";
+  try {
+    selectedDataset = await DatasetApi.getDataset(datasetId, currentUser.email);
+    elements.datasetDialogTitle.textContent = selectedDataset.name;
+    elements.datasetDialogMeta.textContent = `${formatBytes(selectedDataset.size)} / ${formatDate(selectedDataset.createdAt)}`;
+    renderDatasetDetailStats(selectedDataset.stats);
+    elements.queryColumn.replaceChildren(...selectedDataset.headers.map((header) => new Option(header, header)));
+    renderDataTable(elements.datasetDetailTable, selectedDataset.headers, selectedDataset.rows.slice(0, MAX_PREVIEW_ROWS));
+    elements.datasetDetailContent.hidden = false;
+  } catch (error) {
+    elements.datasetDetailLoading.textContent = error.message || "Dataset details could not be loaded.";
+    return;
+  }
+  elements.datasetDetailLoading.hidden = true;
+}
+
+function renderDatasetDetailStats(stats) {
+  const values = [["Rows", stats.rows], ["Columns", stats.columns], ["Missing", stats.missingValues], ["Complete", `${stats.completeness}%`]];
+  elements.datasetDetailStats.replaceChildren(...values.map(([label, value]) => {
+    const item = document.createElement("div");
+    const labelElement = document.createElement("span");
+    const valueElement = document.createElement("strong");
+    labelElement.textContent = label;
+    valueElement.textContent = value;
+    item.append(labelElement, valueElement);
+    return item;
+  }));
+}
+
+function renderDataTable(table, headers, rows) {
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  headers.forEach((header) => {
+    const cell = document.createElement("th");
+    cell.scope = "col";
+    cell.textContent = header;
+    headerRow.append(cell);
+  });
+  thead.append(headerRow);
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tableRow = document.createElement("tr");
+    row.forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value || "Empty";
+      if (!value) cell.className = "is-empty";
+      tableRow.append(cell);
+    });
+    tbody.append(tableRow);
+  });
+  table.replaceChildren(thead, tbody);
+}
+
+function updateQueryValueVisibility() {
+  const isEmptyQuery = elements.queryOperator.value === "empty";
+  elements.queryValueField.hidden = isEmptyQuery;
+  elements.queryValue.required = !isEmptyQuery;
+}
+
+async function runDatasetQuery(event) {
+  event.preventDefault();
+  if (!selectedDataset) return;
+  updateQueryValueVisibility();
+  if (!elements.queryForm.reportValidity()) return;
+  const submitButton = elements.queryForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = "Running query";
+  elements.queryMessage.textContent = "";
+  elements.queryMessage.classList.remove("error");
+  try {
+    const result = await DatasetApi.queryDataset(selectedDataset.id, currentUser.email, {
+      column: elements.queryColumn.value,
+      operator: elements.queryOperator.value,
+      value: elements.queryValue.value.trim()
+    });
+    renderDataTable(elements.datasetDetailTable, result.headers, result.rows.slice(0, MAX_PREVIEW_ROWS));
+    elements.queryMessage.textContent = `${result.count.toLocaleString("en-US")} matching rows found.`;
+  } catch (error) {
+    elements.queryMessage.textContent = error.message || "The query could not be completed.";
+    elements.queryMessage.classList.add("error");
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Run query";
+  }
+}
+
+function openDeleteDialog(dataset) {
+  pendingDeleteDataset = dataset;
+  elements.deleteDialogMessage.textContent = `${dataset.name} will be removed from this demo workspace.`;
+  elements.deleteDialog.showModal();
+}
+
+async function confirmDeleteDataset(event) {
+  event.preventDefault();
+  if (!pendingDeleteDataset || !currentUser) return;
+  const submitButton = elements.deleteForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.textContent = "Deleting";
+  try {
+    await DatasetApi.deleteDataset(pendingDeleteDataset.id, currentUser.email);
+    elements.deleteDialog.close();
+    showToast(`${pendingDeleteDataset.name} was deleted.`);
+    pendingDeleteDataset = null;
+    await loadDatasetLibrary({ silent: true });
+  } catch (error) {
+    elements.deleteDialogMessage.textContent = error.message || "The dataset could not be deleted.";
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Delete dataset";
+  }
+}
+
+function showToast(message) {
+  elements.toast.textContent = message;
+  elements.toast.hidden = false;
+  window.clearTimeout(showToast.timeoutId);
+  showToast.timeoutId = window.setTimeout(() => { elements.toast.hidden = true; }, 3200);
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("en-AU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function initializeTheme() {
@@ -470,6 +761,7 @@ function saveAuthUser(user, persist) {
 }
 
 function renderAuthUser(user) {
+  currentUser = user;
   elements.guestAuth.hidden = Boolean(user);
   elements.userAuth.hidden = !user;
   elements.primaryNav.hidden = Boolean(user);
@@ -502,6 +794,7 @@ function showMemberDashboard() {
   elements.memberAnalyzeNavButton.classList.remove("is-active");
   document.querySelectorAll("[data-member-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.memberView === "dashboard"));
   window.scrollTo({ top: 0, behavior: "smooth" });
+  loadDatasetLibrary();
 }
 
 function showMemberAnalyzer() {
