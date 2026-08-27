@@ -50,7 +50,7 @@
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.message || `Request failed with status ${response.status}.`);
+      throw new Error(payload.message || payload.error?.message || `Request failed with status ${response.status}.`);
     }
     return response.status === 204 ? null : response.json();
   }
@@ -67,12 +67,20 @@
         .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt));
     },
 
-    async createDataset({ owner, name, size, headers, rows }) {
+    async createDataset({ owner, name, size, headers, rows, file, contentType = "text/csv" }) {
       if (USE_REMOTE_API) {
-        return request("/datasets", {
+        if (!file) throw new Error("A source CSV file is required for cloud upload.");
+        const created = await request("/datasets", {
           method: "POST",
-          body: JSON.stringify({ name, size, headers, rows })
+          body: JSON.stringify({ name, size, contentType })
         });
+        const uploaded = await fetch(created.upload.url, {
+          method: created.upload.method || "PUT",
+          headers: { "Content-Type": contentType },
+          body: file
+        });
+        if (!uploaded.ok) throw new Error("The CSV could not be uploaded to cloud storage.");
+        return created.dataset;
       }
       await wait(380);
       const dataset = {

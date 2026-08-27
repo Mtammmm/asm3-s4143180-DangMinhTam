@@ -158,7 +158,7 @@ function handleFile(file) {
       if (!dataset.headers.length || !dataset.rows.length) throw new Error("The file does not contain valid data.");
       displayDataset(dataset, file.name, file.size);
       if (currentUser) {
-        await DatasetApi.createDataset({ owner: currentUser.email, name: file.name, size: file.size, headers: dataset.headers, rows: dataset.rows });
+        await DatasetApi.createDataset({ owner: currentUser.email, name: file.name, size: file.size, headers: dataset.headers, rows: dataset.rows, file, contentType: file.type || "text/csv" });
         await loadDatasetLibrary({ silent: true });
       }
       showMessage(`${file.name} was loaded successfully.`, "success");
@@ -325,7 +325,9 @@ async function loadSampleData() {
   displayDataset({ headers, rows }, "sample-orders.csv", 348);
   if (currentUser) {
     try {
-      await DatasetApi.createDataset({ owner: currentUser.email, name: "sample-orders.csv", size: 348, headers, rows });
+      const sampleSource = [headers, ...rows].map((record) => record.join(",")).join("\n");
+      const sampleFile = new Blob([sampleSource], { type: "text/csv" });
+      await DatasetApi.createDataset({ owner: currentUser.email, name: "sample-orders.csv", size: sampleFile.size, headers, rows, file: sampleFile, contentType: "text/csv" });
       await loadDatasetLibrary({ silent: true });
     } catch (error) {
       showMessage(error.message, "error");

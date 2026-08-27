@@ -1,0 +1,251 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: CSV Insight backend resources for AWS Academy Learner Lab
+
+Parameters:
+  LabRoleArn:
+    Type: String
+    Description: ARN of the pre-created AWS Academy LabRole
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+  FrontendOrigins:
+    Type: String
+    Default: http://localhost:5500
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    MemorySize: 512
+    Timeout: 30
+    Tracing: Active
+
+Resources:
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CsvInsightUsers
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+  DatasetsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CsvInsightDatasets
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: datasetId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: datasetId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - PUT
+              - GET
+            AllowedOrigins:
+              - "*"
+            MaxAge: 900
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAthenaAndPreviewArtifacts
+            Status: Enabled
+            Prefix: temporary/
+            ExpirationInDays: 7
+
+  AvatarBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - PUT
+              - GET
+            AllowedOrigins:
+              - "*"
+            MaxAge: 900
+
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowOrigins:
+          - "*"
+
+  FlaskApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: lambda_handler.handler
+      Role: !Ref LabRoleArn
+      Environment:
+        Variables:
+          STORAGE_BACKEND: aws
+          USERS_TABLE: !Ref UsersTable
+          DATASETS_TABLE: !Ref DatasetsTable
+          UPLOAD_BUCKET: !Ref UploadBucket
+          AVATAR_BUCKET: !Ref AvatarBucket
+          JWT_SECRET: !Ref JwtSecret
+          FRONTEND_ORIGINS: !Ref FrontendOrigins
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+
+  ProcessorCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: csv-insight-cluster
+
+  ProcessorRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: csv-insight-processor
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      EmptyOnDelete: true
+
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/csv-insight-processor
+      RetentionInDays: 7
+
+  ProcessorSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Outbound access for CSV processor tasks
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  ProcessorTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: csv-insight-processor
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      TaskRoleArn: !Ref LabRoleArn
+      ExecutionRoleArn: !Ref LabRoleArn
+      ContainerDefinitions:
+        - Name: csv-processor
+          Essential: true
+          Image:
+            Fn::Join:
+              - ""
+              - - Fn::GetAtt:
+                    - ProcessorRepository
+                    - RepositoryUri
+                - ":latest"
+          Environment:
+            - Name: DATASETS_TABLE
+              Value: !Ref DatasetsTable
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ProcessorLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: processor
+
+  UploadEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/lambdas/s3_event_handler
+      Handler: handler.handler
+      Role: !Ref LabRoleArn
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          DATASETS_TABLE: !Ref DatasetsTable
+          ECS_CLUSTER: !Ref ProcessorCluster
+          PROCESSOR_TASK_DEFINITION: !Ref ProcessorTaskDefinition
+          ECS_SUBNETS: !Join [",", !Ref PublicSubnetIds]
+          ECS_SECURITY_GROUP: !Ref ProcessorSecurityGroup
+      Events:
+        DatasetUploaded:
+          Type: S3
+          Properties:
+            Bucket: !Ref UploadBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: datasets/
+                  - Name: suffix
+                    Value: .csv
+
+Outputs:
+  ApiUrl:
+    Description: Base URL consumed by frontend/api.js
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  UploadBucketName:
+    Value: !Ref UploadBucket
+  AvatarBucketName:
+    Value: !Ref AvatarBucket
+  ProcessorRepositoryUri:
+    Value: !GetAtt ProcessorRepository.RepositoryUri
+  ProcessorClusterName:
+    Value: !Ref ProcessorCluster
