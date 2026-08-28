@@ -10,7 +10,7 @@ python -m http.server 5500 --directory frontend
 
 Open `http://localhost:5500`.
 
-Demo credentials can use any valid email and any password containing at least 8 characters. Authentication is intentionally local until the backend identity flow is implemented.
+Authentication uses the Flask backend. Start it on `http://localhost:8080`, then register an account from the frontend. Passwords are hashed by the backend and stored in the configured user store.
 
 ## Completed frontend flows
 
@@ -26,7 +26,7 @@ Demo credentials can use any valid email and any password containing at least 8 
 
 ## Service boundary
 
-`api.js` is the only dataset persistence boundary. Without configuration it uses `localStorage` as a frontend demo adapter. Set the API base URL before the scripts load to switch to REST mode:
+Set the API base URL in `config.js`. It defaults to the local Flask backend; replace it with the API Gateway URL for deployment:
 
 ```html
 <script>window.CSV_INSIGHT_API_URL = "https://api.example.com/v1";</script>

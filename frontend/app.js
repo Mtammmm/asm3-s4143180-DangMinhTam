@@ -598,18 +598,25 @@ function applyTheme(theme) {
   document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#0d1117" : "#f4f6f8";
 }
 
-function initializeAuth() {
+async function initializeAuth() {
   const savedUser = localStorage.getItem("csv-insight-user") || sessionStorage.getItem("csv-insight-user");
-  if (!savedUser) {
+  const savedToken = localStorage.getItem("csv-insight-token") || sessionStorage.getItem("csv-insight-token");
+  if (!savedUser || !savedToken) {
+    clearAuthSession();
     renderAuthUser(null);
     return;
   }
 
   try {
-    renderAuthUser(JSON.parse(savedUser));
+    const cachedUser = JSON.parse(savedUser);
+    renderAuthUser(cachedUser);
+    const apiUser = await AuthApi.getProfile();
+    const user = { ...apiUser, name: apiUser.fullName || cachedUser.name || formatNameFromEmail(apiUser.email) };
+    const storage = localStorage.getItem("csv-insight-token") ? localStorage : sessionStorage;
+    storage.setItem("csv-insight-user", JSON.stringify(user));
+    renderAuthUser(user);
   } catch {
-    localStorage.removeItem("csv-insight-user");
-    sessionStorage.removeItem("csv-insight-user");
+    clearAuthSession();
     renderAuthUser(null);
   }
 }
@@ -683,7 +690,7 @@ function setSubmitState(form, loading, label) {
   button.textContent = loading ? label : button.dataset.defaultLabel;
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   clearAuthFeedback();
   const emailInput = elements.loginForm.elements.email;
@@ -698,17 +705,23 @@ function handleLogin(event) {
   }
 
   setSubmitState(elements.loginForm, true, "Signing in");
-  window.setTimeout(() => {
-    const email = emailInput.value.trim();
-    const user = { name: formatNameFromEmail(email), email };
-    saveAuthUser(user, elements.loginForm.elements.remember.checked);
-    setSubmitState(elements.loginForm, false, "");
-    setFormMessage("loginMessage", "Signed in successfully. This is a local demo session.", "success");
+  try {
+    const result = await AuthApi.login({
+      email: emailInput.value.trim(),
+      password: passwordInput.value
+    });
+    saveAuthSession(result.user, result.accessToken, elements.loginForm.elements.remember.checked);
+    elements.loginForm.reset();
+    setFormMessage("loginMessage", "Signed in successfully.", "success");
     window.setTimeout(closeAuthDialog, 650);
-  }, 650);
+  } catch (error) {
+    setFormMessage("loginMessage", error.message, "error");
+  } finally {
+    setSubmitState(elements.loginForm, false, "");
+  }
 }
 
-function handleSignup(event) {
+async function handleSignup(event) {
   event.preventDefault();
   clearAuthFeedback();
   const { name, email, password, confirmPassword, terms } = elements.signupForm.elements;
@@ -728,16 +741,24 @@ function handleSignup(event) {
   }
 
   setSubmitState(elements.signupForm, true, "Creating account");
-  window.setTimeout(() => {
-    const user = { name: name.value.trim(), email: email.value.trim() };
-    saveAuthUser(user, true);
-    setSubmitState(elements.signupForm, false, "");
-    setFormMessage("signupMessage", "Account created for this frontend demo. No password was stored.", "success");
+  try {
+    const result = await AuthApi.register({
+      fullName: name.value.trim(),
+      email: email.value.trim(),
+      password: password.value
+    });
+    saveAuthSession(result.user, result.accessToken, true);
+    elements.signupForm.reset();
+    setFormMessage("signupMessage", "Account created successfully.", "success");
     window.setTimeout(closeAuthDialog, 750);
-  }, 700);
+  } catch (error) {
+    setFormMessage("signupMessage", error.message, "error");
+  } finally {
+    setSubmitState(elements.signupForm, false, "");
+  }
 }
 
-function handleForgotPassword(event) {
+async function handleForgotPassword(event) {
   event.preventDefault();
   clearAuthFeedback();
   const emailInput = elements.forgotForm.elements.email;
@@ -748,17 +769,22 @@ function handleForgotPassword(event) {
   }
 
   setSubmitState(elements.forgotForm, true, "Preparing request");
-  window.setTimeout(() => {
+  try {
+    const result = await AuthApi.forgotPassword(emailInput.value.trim());
+    setFormMessage("forgotMessage", result.message, "success");
+  } catch (error) {
+    setFormMessage("forgotMessage", error.message, "error");
+  } finally {
     setSubmitState(elements.forgotForm, false, "");
-    setFormMessage("forgotMessage", "Reset request preview complete. Connect a backend later to send the email.", "success");
-  }, 650);
+  }
 }
 
-function saveAuthUser(user, persist) {
-  localStorage.removeItem("csv-insight-user");
-  sessionStorage.removeItem("csv-insight-user");
+function saveAuthSession(apiUser, accessToken, persist) {
+  clearAuthSession();
   const storage = persist ? localStorage : sessionStorage;
+  const user = { ...apiUser, name: apiUser.fullName || apiUser.name || formatNameFromEmail(apiUser.email) };
   storage.setItem("csv-insight-user", JSON.stringify(user));
+  storage.setItem("csv-insight-token", accessToken);
   renderAuthUser(user);
 }
 
@@ -811,10 +837,16 @@ function showMemberAnalyzer() {
 }
 
 function signOut() {
-  localStorage.removeItem("csv-insight-user");
-  sessionStorage.removeItem("csv-insight-user");
+  clearAuthSession();
   renderAuthUser(null);
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function clearAuthSession() {
+  localStorage.removeItem("csv-insight-user");
+  sessionStorage.removeItem("csv-insight-user");
+  localStorage.removeItem("csv-insight-token");
+  sessionStorage.removeItem("csv-insight-token");
 }
 
 function formatNameFromEmail(email) {

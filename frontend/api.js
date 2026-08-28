@@ -5,6 +5,10 @@
   const API_BASE_URL = global.CSV_INSIGHT_API_URL || "";
   const USE_REMOTE_API = Boolean(API_BASE_URL);
 
+  function getStoredAccessToken() {
+    return localStorage.getItem("csv-insight-token") || sessionStorage.getItem("csv-insight-token") || "";
+  }
+
   function wait(milliseconds = 260) {
     return new Promise((resolve) => global.setTimeout(resolve, milliseconds));
   }
@@ -39,7 +43,7 @@
   async function request(path, options = {}) {
     const accessToken = typeof global.CSV_INSIGHT_GET_TOKEN === "function"
       ? await global.CSV_INSIGHT_GET_TOKEN()
-      : "";
+      : getStoredAccessToken();
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
@@ -141,5 +145,37 @@
     }
   };
 
+  const AuthApi = {
+    async register({ fullName, email, password }) {
+      if (!USE_REMOTE_API) throw new Error("Set CSV_INSIGHT_API_URL before using account authentication.");
+      return request("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ fullName, email, password })
+      });
+    },
+
+    async login({ email, password }) {
+      if (!USE_REMOTE_API) throw new Error("Set CSV_INSIGHT_API_URL before using account authentication.");
+      return request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password })
+      });
+    },
+
+    async forgotPassword(email) {
+      if (!USE_REMOTE_API) throw new Error("Set CSV_INSIGHT_API_URL before using account authentication.");
+      return request("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email })
+      });
+    },
+
+    async getProfile() {
+      if (!USE_REMOTE_API) throw new Error("Set CSV_INSIGHT_API_URL before using account authentication.");
+      return request("/users/me");
+    }
+  };
+
   global.DatasetApi = DatasetApi;
+  global.AuthApi = AuthApi;
 })(window);
