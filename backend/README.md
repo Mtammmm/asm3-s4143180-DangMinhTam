@@ -22,13 +22,12 @@ Flask REST API, DynamoDB persistence, presigned S3 uploads, Lambda orchestration
 
 ## Local setup
 
-Create a virtual environment and install dependencies:
+Create a virtual environment and install API dependencies:
 
 ```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
+python -m venv backend/.venv
+.\backend\.venv\Scripts\Activate.ps1
+python -m pip install -r backend/api/requirements-dev.txt
 ```
 
 Run without AWS by using the in-memory store:
@@ -37,7 +36,7 @@ Run without AWS by using the in-memory store:
 $env:STORAGE_BACKEND = "memory"
 $env:JWT_SECRET = "local-development-secret-with-at-least-32-characters"
 $env:FRONTEND_ORIGINS = "http://localhost:5500"
-python run.py
+python backend/api/run.py
 ```
 
 The API is available at `http://localhost:8080`.
@@ -46,6 +45,17 @@ Run tests:
 
 ```powershell
 python -m pytest -q
+```
+
+## Directory layout
+
+```text
+backend/
+├── api/                     # Flask API, local entrypoint, and API Lambda entrypoint
+├── functions/upload_event/  # S3-triggered orchestration Lambda
+├── workers/csv_processor/   # One-shot ECS Fargate CSV processor
+├── scripts/                 # Operational and seed scripts
+└── tests/                   # API and processor tests
 ```
 
 ## Local connection to Learner Lab
@@ -68,41 +78,18 @@ As a local-only shortcut, copy `.env.example` to `.env` and fill the three tempo
 
 Do not add AWS credentials or `.env` files to the repository.
 
-## AWS deployment order
+## AWS deployment
 
-Prerequisites:
-
-- AWS CLI authenticated with the `learner-lab` profile.
-- AWS SAM CLI.
-- Docker.
-- The ARN of the pre-created `LabRole`.
-- Default VPC ID and at least one public subnet ID.
-
-Validate and deploy the initial stack:
-
-```powershell
-sam validate --template-file infrastructure/template.yaml
-sam build --template-file infrastructure/template.yaml
-sam deploy --guided --profile learner-lab
-```
-
-Use `LabRole` for both task role and task execution role. The stack creates an ECR repository but the first deployment references an image tag that has not been pushed yet. After the stack creates the repository, authenticate Docker and push the processor:
+Follow [`../docs/aws-learner-lab-manual-setup.md`](../docs/aws-learner-lab-manual-setup.md) to deploy with the AWS Console and CLI. The processor image is built and pushed with:
 
 ```powershell
 $accountId = aws sts get-caller-identity --query Account --output text --profile learner-lab
 $region = "us-east-1"
 $repository = "$accountId.dkr.ecr.$region.amazonaws.com/csv-insight-processor"
 aws ecr get-login-password --region $region --profile learner-lab | docker login --username AWS --password-stdin "$accountId.dkr.ecr.$region.amazonaws.com"
-docker build -t csv-insight-processor backend/processor
+docker build -t csv-insight-processor backend/workers/csv_processor
 docker tag csv-insight-processor:latest "${repository}:latest"
 docker push "${repository}:latest"
-```
-
-Redeploy the stack after the first image push so the latest task definition is registered:
-
-```powershell
-sam build --template-file infrastructure/template.yaml
-sam deploy --profile learner-lab
 ```
 
 ## Processing workflow

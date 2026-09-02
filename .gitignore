@@ -4,7 +4,6 @@ venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.aws-sam/
-samconfig.toml
 coverage.xml
 .coverage
+*.zip

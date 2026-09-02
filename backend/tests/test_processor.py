@@ -1,4 +1,4 @@
-from processor.main import analyze_csv
+from csv_processor.main import analyze_csv
 
 
 def test_semicolon_csv_is_aligned_into_columns():
