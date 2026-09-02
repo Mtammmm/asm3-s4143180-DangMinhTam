@@ -488,7 +488,7 @@ S3 bucket và Lambda phải nằm trong cùng region.
 
 ## 14. Build deployment package cho Flask Lambda
 
-Không cài dependency trực tiếp bằng Windows rồi zip, vì `argon2-cffi` có thành phần native và package Windows không tương thích với Lambda Linux.
+Build dependency trong Lambda Python container để deployment package khớp với môi trường Linux của AWS.
 
 Tại thư mục gốc project, chạy:
 
@@ -531,7 +531,6 @@ flask-api.zip
 ├── lambda_handler.py
 ├── app/
 ├── flask/
-├── argon2/
 └── ...
 ```
 

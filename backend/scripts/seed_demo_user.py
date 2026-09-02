@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
-from argon2 import PasswordHasher
 from boto3.dynamodb.conditions import Key
 
 
@@ -32,7 +31,7 @@ def main():
             "userId": str(uuid.uuid4()),
             "email": email,
             "fullName": full_name,
-            "passwordHash": PasswordHasher().hash(password),
+            "password": password,
             "avatarKey": "",
             "accountStatus": "active",
             "createdAt": now,

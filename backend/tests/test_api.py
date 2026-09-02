@@ -1,3 +1,6 @@
+from app.store import MemoryStore
+
+
 def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
@@ -7,7 +10,11 @@ def test_health_check(client):
 def test_register_login_and_profile(client):
     register = client.post("/auth/register", json={"email": "demo@csvinsight.com", "fullName": "Demo User", "password": "12345678"})
     assert register.status_code == 201
+    assert "password" not in register.get_json()["user"]
     assert "passwordHash" not in register.get_json()["user"]
+    stored_user = next(iter(MemoryStore.users.values()))
+    assert stored_user["password"] == "12345678"
+    assert "passwordHash" not in stored_user
 
     login = client.post("/auth/login", json={"email": "demo@csvinsight.com", "password": "12345678"})
     assert login.status_code == 200

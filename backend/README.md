@@ -7,7 +7,7 @@ Flask REST API, DynamoDB persistence, presigned S3 uploads, Lambda orchestration
 | Method | Path | Authentication | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/health` | No | Health check |
-| `POST` | `/auth/register` | No | Create a user with an Argon2 password hash |
+| `POST` | `/auth/register` | No | Create a user account |
 | `POST` | `/auth/login` | No | Verify credentials and issue a JWT |
 | `POST` | `/auth/forgot-password` | No | Create a 15-minute password reset token |
 | `POST` | `/auth/reset-password` | No | Replace the password using a valid reset token |
@@ -104,7 +104,7 @@ docker push "${repository}:latest"
 
 ## Demo user seed
 
-The seed script reads its password from the environment and never stores plaintext:
+The seed script reads its password from the environment:
 
 ```powershell
 $env:AWS_PROFILE = "learner-lab"
