@@ -57,7 +57,7 @@ def login():
     user = get_store().get_user_by_email(email)
     if not user:
         raise ApiError("Email or password is incorrect.", 401, "INVALID_CREDENTIALS")
-    if user.get("password") != password:
+    if not secrets.compare_digest(str(user.get("password", "")), password):
         raise ApiError("Email or password is incorrect.", 401, "INVALID_CREDENTIALS")
     if user.get("accountStatus") != "active":
         raise ApiError("This account is not active.", 403, "ACCOUNT_INACTIVE")

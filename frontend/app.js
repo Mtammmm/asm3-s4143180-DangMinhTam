@@ -4,6 +4,9 @@ const MAX_PREVIEW_ROWS = 100;
 const elements = {
   authCloseButton: document.querySelector("#authCloseButton"),
   authDialog: document.querySelector("#authDialog"),
+  avatarChooseButton: document.querySelector("#avatarChooseButton"),
+  avatarFileInput: document.querySelector("#avatarFileInput"),
+  avatarMessage: document.querySelector("#avatarMessage"),
   browseButton: document.querySelector("#browseButton"),
   dataTable: document.querySelector("#dataTable"),
   datasetCount: document.querySelector("#datasetCount"),
@@ -39,13 +42,22 @@ const elements = {
   memberApp: document.querySelector("#memberApp"),
   memberAvatar: document.querySelector("#memberAvatar"),
   memberDashboardButton: document.querySelector("#memberDashboardButton"),
+  memberDashboardView: document.querySelector("#memberDashboardView"),
   memberGreetingName: document.querySelector("#memberGreetingName"),
   memberNav: document.querySelector("#memberNav"),
   memberProfileEmail: document.querySelector("#memberProfileEmail"),
   memberProfileName: document.querySelector("#memberProfileName"),
+  memberProfileNavButton: document.querySelector("#memberProfileNavButton"),
+  memberProfileView: document.querySelector("#memberProfileView"),
   memberSampleButton: document.querySelector("#memberSampleButton"),
   memberUploadButton: document.querySelector("#memberUploadButton"),
   primaryNav: document.querySelector(".primary-nav"),
+  profileAvatarPreview: document.querySelector("#profileAvatarPreview"),
+  profileBackButton: document.querySelector("#profileBackButton"),
+  profileEmail: document.querySelector("#profileEmail"),
+  profileFullName: document.querySelector("#profileFullName"),
+  profileNameForm: document.querySelector("#profileNameForm"),
+  profileNameMessage: document.querySelector("#profileNameMessage"),
   queryColumn: document.querySelector("#queryColumn"),
   queryForm: document.querySelector("#queryForm"),
   queryMessage: document.querySelector("#queryMessage"),
@@ -58,6 +70,8 @@ const elements = {
   resetButton: document.querySelector("#resetButton"),
   results: document.querySelector("#results"),
   rowSummary: document.querySelector("#rowSummary"),
+  passwordForm: document.querySelector("#passwordForm"),
+  passwordMessage: document.querySelector("#passwordMessage"),
   searchInput: document.querySelector("#searchInput"),
   signOutButton: document.querySelector("#signOutButton"),
   skipLink: document.querySelector("#skipLink"),
@@ -102,6 +116,12 @@ elements.retryDatasetsButton.addEventListener("click", loadDatasetLibrary);
 elements.memberAnalyzeButton.addEventListener("click", showMemberAnalyzer);
 elements.memberAnalyzeNavButton.addEventListener("click", showMemberAnalyzer);
 elements.memberDashboardButton.addEventListener("click", showMemberDashboard);
+elements.memberProfileNavButton.addEventListener("click", showMemberProfile);
+elements.profileBackButton.addEventListener("click", showMemberDashboard);
+elements.profileNameForm.addEventListener("submit", handleProfileNameUpdate);
+elements.passwordForm.addEventListener("submit", handlePasswordChange);
+elements.avatarChooseButton.addEventListener("click", () => elements.avatarFileInput.click());
+elements.avatarFileInput.addEventListener("change", handleAvatarUpload);
 elements.memberUploadButton.addEventListener("click", () => {
   showMemberAnalyzer();
   elements.fileInput.click();
@@ -112,7 +132,11 @@ elements.memberSampleButton.addEventListener("click", () => {
 });
 elements.recentAnalyzeButton.addEventListener("click", showMemberAnalyzer);
 document.querySelectorAll("[data-member-view]").forEach((button) => {
-  button.addEventListener("click", () => button.dataset.memberView === "analyzer" ? showMemberAnalyzer() : showMemberDashboard());
+  button.addEventListener("click", () => {
+    if (button.dataset.memberView === "analyzer") showMemberAnalyzer();
+    else if (button.dataset.memberView === "profile") showMemberProfile();
+    else showMemberDashboard();
+  });
 });
 document.querySelectorAll("[data-auth-view]").forEach((button) => {
   button.addEventListener("click", () => openAuthDialog(button.dataset.authView));
@@ -802,24 +826,52 @@ function renderAuthUser(user) {
     elements.skipLink.href = "#main-content";
     return;
   }
-  elements.userName.textContent = user.name;
-  elements.userInitials.textContent = getInitials(user.name);
-  elements.memberAvatar.textContent = getInitials(user.name);
-  elements.memberProfileName.textContent = user.name;
-  elements.memberProfileEmail.textContent = user.email;
-  elements.memberGreetingName.textContent = user.name.split(/\s+/)[0];
+  renderUserIdentity(user);
   document.body.classList.add("is-authenticated");
   showMemberDashboard();
+}
+
+function renderUserIdentity(user) {
+  const name = user.fullName || user.name || formatNameFromEmail(user.email);
+  user.name = name;
+  const initials = getInitials(name);
+  const avatarImage = user.avatarUrl ? `url(${JSON.stringify(user.avatarUrl)})` : "";
+  elements.userName.textContent = name;
+  elements.memberProfileName.textContent = name;
+  elements.memberProfileEmail.textContent = user.email;
+  elements.memberGreetingName.textContent = name.split(/\s+/)[0];
+  elements.profileFullName.value = name;
+  elements.profileEmail.value = user.email;
+  [elements.userInitials, elements.memberAvatar, elements.profileAvatarPreview].forEach((element) => {
+    element.style.backgroundImage = avatarImage;
+    element.textContent = user.avatarUrl ? "" : initials;
+  });
+}
+
+function saveUpdatedUser(user) {
+  const normalized = { ...currentUser, ...user, name: user.fullName || user.name || currentUser.name };
+  currentUser = normalized;
+  const storage = localStorage.getItem("csv-insight-token") ? localStorage : sessionStorage;
+  storage.setItem("csv-insight-user", JSON.stringify(normalized));
+  renderUserIdentity(normalized);
+}
+
+function setProfileMessage(element, message, type = "") {
+  element.textContent = message;
+  element.className = `profile-message${type ? ` ${type}` : ""}`;
 }
 
 function showMemberDashboard() {
   document.body.classList.remove("member-analysis-mode");
   elements.memberApp.hidden = false;
+  elements.memberDashboardView.hidden = false;
+  elements.memberProfileView.hidden = true;
   elements.mainContent.hidden = true;
   elements.guestFooter.hidden = true;
   elements.skipLink.href = "#memberApp";
   elements.memberDashboardButton.classList.add("is-active");
   elements.memberAnalyzeNavButton.classList.remove("is-active");
+  elements.memberProfileNavButton.classList.remove("is-active");
   document.querySelectorAll("[data-member-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.memberView === "dashboard"));
   window.scrollTo({ top: 0, behavior: "smooth" });
   loadDatasetLibrary();
@@ -833,7 +885,106 @@ function showMemberAnalyzer() {
   elements.skipLink.href = "#workspace-title";
   elements.memberDashboardButton.classList.remove("is-active");
   elements.memberAnalyzeNavButton.classList.add("is-active");
+  elements.memberProfileNavButton.classList.remove("is-active");
+  document.querySelectorAll("[data-member-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.memberView === "analyzer"));
   window.setTimeout(() => document.querySelector("#workspace-title")?.scrollIntoView({ behavior: "smooth", block: "start" }), 20);
+}
+
+function showMemberProfile() {
+  document.body.classList.remove("member-analysis-mode");
+  elements.memberApp.hidden = false;
+  elements.memberDashboardView.hidden = true;
+  elements.memberProfileView.hidden = false;
+  elements.mainContent.hidden = true;
+  elements.guestFooter.hidden = true;
+  elements.skipLink.href = "#profile-title";
+  elements.memberDashboardButton.classList.remove("is-active");
+  elements.memberAnalyzeNavButton.classList.remove("is-active");
+  elements.memberProfileNavButton.classList.add("is-active");
+  document.querySelectorAll("[data-member-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.memberView === "profile"));
+  setProfileMessage(elements.profileNameMessage, "");
+  setProfileMessage(elements.passwordMessage, "");
+  setProfileMessage(elements.avatarMessage, "");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function handleProfileNameUpdate(event) {
+  event.preventDefault();
+  const fullName = elements.profileFullName.value.trim();
+  if (fullName.length < 2 || fullName.length > 100) {
+    setFieldError(elements.profileFullName, "Enter between 2 and 100 characters.");
+    setProfileMessage(elements.profileNameMessage, "Check your full name and try again.", "error");
+    return;
+  }
+  setFieldError(elements.profileFullName, "");
+  setSubmitState(elements.profileNameForm, true, "Saving profile");
+  try {
+    const user = await AuthApi.updateProfile(fullName);
+    saveUpdatedUser(user);
+    setProfileMessage(elements.profileNameMessage, "Profile updated successfully.", "success");
+  } catch (error) {
+    setProfileMessage(elements.profileNameMessage, error.message, "error");
+  } finally {
+    setSubmitState(elements.profileNameForm, false, "");
+  }
+}
+
+async function handlePasswordChange(event) {
+  event.preventDefault();
+  const { currentPassword, newPassword, confirmPassword } = elements.passwordForm.elements;
+  const currentValid = currentPassword.value
+    ? setFieldError(currentPassword, "")
+    : setFieldError(currentPassword, "Enter your current password.");
+  const newValid = newPassword.value.length >= 8
+    ? setFieldError(newPassword, "")
+    : setFieldError(newPassword, "Use at least 8 characters.");
+  const confirmValid = confirmPassword.value === newPassword.value && confirmPassword.value
+    ? setFieldError(confirmPassword, "")
+    : setFieldError(confirmPassword, "Passwords must match.");
+  if (!currentValid || !newValid || !confirmValid) {
+    setProfileMessage(elements.passwordMessage, "Check the highlighted fields and try again.", "error");
+    return;
+  }
+  setSubmitState(elements.passwordForm, true, "Updating password");
+  try {
+    const result = await AuthApi.changePassword(currentPassword.value, newPassword.value);
+    elements.passwordForm.reset();
+    setProfileMessage(elements.passwordMessage, result.message, "success");
+  } catch (error) {
+    setProfileMessage(elements.passwordMessage, error.message, "error");
+  } finally {
+    setSubmitState(elements.passwordForm, false, "");
+  }
+}
+
+async function handleAvatarUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.type)) {
+    setProfileMessage(elements.avatarMessage, "Choose a JPEG, PNG or WebP image.", "error");
+    event.target.value = "";
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    setProfileMessage(elements.avatarMessage, "Choose an image smaller than 5 MB.", "error");
+    event.target.value = "";
+    return;
+  }
+  elements.avatarChooseButton.disabled = true;
+  elements.avatarChooseButton.textContent = "Uploading image";
+  setProfileMessage(elements.avatarMessage, "Uploading your profile picture.");
+  try {
+    const user = await AuthApi.uploadAvatar(file);
+    saveUpdatedUser(user);
+    setProfileMessage(elements.avatarMessage, "Profile picture updated successfully.", "success");
+  } catch (error) {
+    setProfileMessage(elements.avatarMessage, error.message, "error");
+  } finally {
+    elements.avatarChooseButton.disabled = false;
+    elements.avatarChooseButton.textContent = "Choose image";
+    event.target.value = "";
+  }
 }
 
 function signOut() {
@@ -850,6 +1001,10 @@ function signOut() {
   elements.datasetSearchInput.value = "";
   elements.results.hidden = true;
   elements.emptyState.hidden = false;
+  elements.memberDashboardView.hidden = false;
+  elements.memberProfileView.hidden = true;
+  elements.profileNameForm.reset();
+  elements.passwordForm.reset();
   clearMessage();
   renderAuthUser(null);
   window.scrollTo({ top: 0, behavior: "smooth" });

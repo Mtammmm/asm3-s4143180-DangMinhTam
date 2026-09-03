@@ -25,6 +25,51 @@ def test_register_login_and_profile(client):
     assert profile.get_json()["email"] == "demo@csvinsight.com"
 
 
+def test_profile_name_and_password_can_be_updated(authenticated_client):
+    renamed = authenticated_client.patch("/users/me", json={"fullName": "Updated User"})
+    assert renamed.status_code == 200
+    assert renamed.get_json()["fullName"] == "Updated User"
+
+    wrong_password = authenticated_client.post(
+        "/users/me/password",
+        json={"currentPassword": "not-the-password", "newPassword": "NewPassword123!"},
+    )
+    assert wrong_password.status_code == 401
+    assert wrong_password.get_json()["error"]["code"] == "INVALID_CURRENT_PASSWORD"
+
+    changed = authenticated_client.post(
+        "/users/me/password",
+        json={"currentPassword": "12345678", "newPassword": "NewPassword123!"},
+    )
+    assert changed.status_code == 200
+    assert authenticated_client.post(
+        "/auth/login", json={"email": "demo@csvinsight.com", "password": "12345678"}
+    ).status_code == 401
+    assert authenticated_client.post(
+        "/auth/login", json={"email": "demo@csvinsight.com", "password": "NewPassword123!"}
+    ).status_code == 200
+
+
+def test_avatar_upload_is_prepared_then_confirmed(authenticated_client):
+    prepared = authenticated_client.post("/users/me/avatar/upload-url", json={"contentType": "image/png"})
+    assert prepared.status_code == 200
+    payload = prepared.get_json()
+    assert payload["avatarKey"].startswith("avatars/")
+    assert payload["avatarKey"].endswith("/profile.png")
+    assert payload["upload"]["method"] == "PUT"
+    stored_user = next(iter(MemoryStore.users.values()))
+    assert stored_user["avatarKey"] == ""
+
+    confirmed = authenticated_client.patch("/users/me/avatar", json={"avatarKey": payload["avatarKey"]})
+    assert confirmed.status_code == 200
+    assert confirmed.get_json()["avatarKey"] == payload["avatarKey"]
+    assert confirmed.get_json()["avatarUrl"].endswith(payload["avatarKey"])
+
+    invalid = authenticated_client.patch("/users/me/avatar", json={"avatarKey": "avatars/someone-else/profile.png"})
+    assert invalid.status_code == 400
+    assert invalid.get_json()["error"]["code"] == "INVALID_AVATAR_KEY"
+
+
 def test_duplicate_registration_is_rejected(client):
     payload = {"email": "demo@csvinsight.com", "fullName": "Demo User", "password": "12345678"}
     assert client.post("/auth/register", json=payload).status_code == 201

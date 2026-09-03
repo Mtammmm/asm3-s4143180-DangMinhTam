@@ -173,6 +173,37 @@
     async getProfile() {
       if (!USE_REMOTE_API) throw new Error("Set CSV_INSIGHT_API_URL before using account authentication.");
       return request("/users/me");
+    },
+
+    async updateProfile(fullName) {
+      return request("/users/me", {
+        method: "PATCH",
+        body: JSON.stringify({ fullName })
+      });
+    },
+
+    async changePassword(currentPassword, newPassword) {
+      return request("/users/me/password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+    },
+
+    async uploadAvatar(file) {
+      const prepared = await request("/users/me/avatar/upload-url", {
+        method: "POST",
+        body: JSON.stringify({ contentType: file.type })
+      });
+      const uploaded = await fetch(prepared.upload.url, {
+        method: prepared.upload.method || "PUT",
+        headers: { "Content-Type": file.type },
+        body: file
+      });
+      if (!uploaded.ok) throw new Error("The profile picture could not be uploaded.");
+      return request("/users/me/avatar", {
+        method: "PATCH",
+        body: JSON.stringify({ avatarKey: prepared.avatarKey })
+      });
     }
   };
 

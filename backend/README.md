@@ -13,7 +13,9 @@ Flask REST API, DynamoDB persistence, presigned S3 uploads, Lambda orchestration
 | `POST` | `/auth/reset-password` | No | Replace the password using a valid reset token |
 | `GET` | `/users/me` | Bearer JWT | Read the current profile |
 | `PATCH` | `/users/me` | Bearer JWT | Update the current profile |
+| `POST` | `/users/me/password` | Bearer JWT | Verify and replace the current password |
 | `POST` | `/users/me/avatar/upload-url` | Bearer JWT | Create an avatar presigned upload URL |
+| `PATCH` | `/users/me/avatar` | Bearer JWT | Confirm an uploaded avatar and update the profile |
 | `GET` | `/datasets` | Bearer JWT | List owned datasets |
 | `POST` | `/datasets` | Bearer JWT | Create metadata and a CSV presigned upload URL |
 | `GET` | `/datasets/{id}` | Bearer JWT | Read owned dataset details |
