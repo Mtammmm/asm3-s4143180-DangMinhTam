@@ -543,7 +543,7 @@ async function runDatasetQuery(event) {
 
 function openDeleteDialog(dataset) {
   pendingDeleteDataset = dataset;
-  elements.deleteDialogMessage.textContent = `${dataset.name} will be removed from this demo workspace.`;
+  elements.deleteDialogMessage.textContent = `${dataset.name} will be permanently removed from your workspace.`;
   elements.deleteDialog.showModal();
 }
 
@@ -735,7 +735,7 @@ async function handleSignup(event) {
     : setFieldError(confirmPassword, "Passwords must match.");
 
   if (!nameValid || !emailValid || !passwordValid || !confirmValid || !terms.checked) {
-    setFormMessage("signupMessage", terms.checked ? "Check the highlighted fields and try again." : "Accept the demo terms to continue.", "error");
+    setFormMessage("signupMessage", terms.checked ? "Check the highlighted fields and try again." : "Accept the terms to continue.", "error");
     elements.signupForm.querySelector('[aria-invalid="true"]')?.focus();
     return;
   }
@@ -838,6 +838,19 @@ function showMemberAnalyzer() {
 
 function signOut() {
   clearAuthSession();
+  closeAuthDialog();
+  if (elements.datasetDialog.open) elements.datasetDialog.close();
+  if (elements.deleteDialog.open) elements.deleteDialog.close();
+  currentDataset = { headers: [], rows: [] };
+  datasetSummaries = [];
+  selectedDataset = null;
+  pendingDeleteDataset = null;
+  elements.fileInput.value = "";
+  elements.searchInput.value = "";
+  elements.datasetSearchInput.value = "";
+  elements.results.hidden = true;
+  elements.emptyState.hidden = false;
+  clearMessage();
   renderAuthUser(null);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }

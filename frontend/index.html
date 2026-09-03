@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="CSV Insight helps you preview, search, and inspect CSV data privately in your browser.">
+  <meta name="description" content="CSV Insight helps you securely upload, preview, search, and inspect CSV data in one cloud workspace.">
   <meta name="theme-color" content="#f4f6f8">
   <title>CSV Insight | Private CSV analysis</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -48,7 +48,7 @@
         <div class="hero-copy">
           <p class="eyebrow">Private CSV analysis</p>
           <h1 id="hero-title">Raw data. <span>Clear answers.</span></h1>
-          <p class="hero-description">Preview structure, find missing values, and search every row without uploading your file to a server.</p>
+          <p class="hero-description">Upload CSV files securely, find missing values, and explore every row from one cloud workspace.</p>
           <div class="hero-actions">
             <a class="button button-primary button-large" href="#workspace-title">Analyze a CSV</a>
             <button class="button button-secondary button-large" id="heroSampleButton" type="button">Try sample data</button>
@@ -73,7 +73,7 @@
         <h3>Drop your CSV here</h3>
         <p>or browse your device to start exploring</p>
         <button class="button button-primary" id="browseButton" type="button">Choose CSV file</button>
-        <small>CSV format only <span aria-hidden="true">/</span> Maximum 10 MB <span aria-hidden="true">/</span> Local processing</small>
+        <small>CSV format only <span aria-hidden="true">/</span> Maximum 10 MB <span aria-hidden="true">/</span> Secure cloud processing</small>
       </div>
       <div class="message" id="message" role="status" aria-live="polite" hidden></div>
     </section>
@@ -111,15 +111,15 @@
       <aside class="member-sidebar" aria-label="Workspace sections">
         <div class="member-profile">
           <span class="member-avatar" id="memberAvatar">CI</span>
-          <div><strong id="memberProfileName">CSV user</strong><span id="memberProfileEmail">Local account</span></div>
+          <div><strong id="memberProfileName">CSV user</strong><span id="memberProfileEmail">Account email</span></div>
         </div>
         <nav class="member-menu">
           <button class="is-active" type="button" data-member-view="dashboard"><span>Overview</span><small>Workspace home</small></button>
           <button type="button" data-member-view="analyzer"><span>Analyze data</span><small>Open a CSV file</small></button>
         </nav>
         <div class="member-security-note">
-          <strong>Local processing</strong>
-          <p>Your CSV data stays inside this browser session.</p>
+          <strong>Secure cloud workspace</strong>
+          <p>Your account controls access to uploaded files and saved analyses.</p>
         </div>
       </aside>
 
@@ -150,7 +150,7 @@
             <p>Workspace status</p>
             <dl>
               <div><dt>Session</dt><dd>Active</dd></div>
-              <div><dt>Storage</dt><dd>Browser only</dd></div>
+              <div><dt>Storage</dt><dd>Private S3</dd></div>
               <div><dt>Upload limit</dt><dd>10 MB</dd></div>
             </dl>
           </aside>
@@ -189,14 +189,14 @@
           <span>CSV Insight</span>
         </a>
         <div>
-          <p>One workspace for the files that need a closer look.</p>
+          <p>Secure access to every CSV you analyze.</p>
           <ul>
-            <li>Keep recent analyses organized</li>
-            <li>Return to saved workspace settings</li>
-            <li>Prepare for secure cloud sync later</li>
+            <li>Keep uploaded datasets organized</li>
+            <li>Return to saved analysis results</li>
+            <li>Access files through your account</li>
           </ul>
         </div>
-        <small>Frontend demo only. No credentials are sent or stored.</small>
+        <small>JWT authentication protects access to your cloud workspace.</small>
       </aside>
 
       <section class="auth-panel">
@@ -206,7 +206,7 @@
           <header class="auth-heading">
             <p>Welcome back</p>
             <h2>Sign in to CSV Insight</h2>
-            <span>Use any valid email and a password with at least 8 characters for this demo.</span>
+            <span>Enter the email and password associated with your CSV Insight account.</span>
           </header>
           <form class="auth-form" id="loginForm" novalidate>
             <div class="form-field">
@@ -219,7 +219,7 @@
               <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="8" required aria-describedby="loginPasswordError">
               <span class="field-error" id="loginPasswordError"></span>
             </div>
-            <label class="check-field"><input id="rememberAccount" name="remember" type="checkbox"><span>Remember this demo session</span></label>
+            <label class="check-field"><input id="rememberAccount" name="remember" type="checkbox"><span>Keep me signed in on this device</span></label>
             <div class="auth-form-message" id="loginMessage" role="status" aria-live="polite"></div>
             <button class="button button-primary auth-submit" type="submit">Sign in</button>
           </form>
@@ -230,7 +230,7 @@
           <header class="auth-heading">
             <p>Create your workspace</p>
             <h2>Start with CSV Insight</h2>
-            <span>Your demo profile stays in this browser until backend authentication is added.</span>
+            <span>Create a secure account to upload files and return to saved analyses.</span>
           </header>
           <form class="auth-form" id="signupForm" novalidate>
             <div class="form-field">
@@ -255,7 +255,7 @@
                 <span class="field-error" id="signupConfirmPasswordError"></span>
               </div>
             </div>
-            <label class="check-field"><input id="acceptTerms" name="terms" type="checkbox" required><span>I agree to the demo terms and privacy notice.</span></label>
+            <label class="check-field"><input id="acceptTerms" name="terms" type="checkbox" required><span>I agree to the terms and privacy notice.</span></label>
             <div class="auth-form-message" id="signupMessage" role="status" aria-live="polite"></div>
             <button class="button button-primary auth-submit" type="submit">Create account</button>
           </form>
