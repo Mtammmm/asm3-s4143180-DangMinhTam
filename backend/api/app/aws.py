@@ -32,3 +32,13 @@ def delete_prefix(bucket, prefix):
         objects = [{"Key": item["Key"]} for item in page.get("Contents", [])]
         if objects:
             client.delete_objects(Bucket=bucket, Delete={"Objects": objects, "Quiet": True})
+
+
+def delete_glue_table(database, table_name):
+    if current_app.config["STORAGE_BACKEND"] == "memory" or not table_name:
+        return
+    client = boto3.client("glue", region_name=current_app.config["AWS_REGION"])
+    try:
+        client.delete_table(DatabaseName=database, Name=table_name)
+    except client.exceptions.EntityNotFoundException:
+        pass

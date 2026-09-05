@@ -1,4 +1,4 @@
-from csv_processor.main import analyze_csv
+from csv_processor.main import analyze_csv, athena_columns
 
 
 def test_semicolon_csv_is_aligned_into_columns():
@@ -19,3 +19,12 @@ def test_quoted_commas_remain_in_one_value():
     assert headers == ["id", "name", "city"]
     assert rows == [["1", "Morgan, Alex", "Melbourne"]]
     assert stats["columns"] == 3
+
+
+def test_athena_column_names_are_safe_and_unique():
+    assert athena_columns(["Order ID", "Order ID", "2026 Total", ""]) == [
+        {"source": "Order ID", "name": "order_id"},
+        {"source": "Order ID", "name": "order_id_2"},
+        {"source": "2026 Total", "name": "column_3_2026_total"},
+        {"source": "", "name": "column_4"},
+    ]

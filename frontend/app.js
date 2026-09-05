@@ -32,6 +32,7 @@ const elements = {
   fileMeta: document.querySelector("#fileMeta"),
   forgotForm: document.querySelector("#forgotForm"),
   guestAuth: document.querySelector("#guestAuth"),
+  heroAnalyzeButton: document.querySelector("#heroAnalyzeButton"),
   heroSampleButton: document.querySelector("#heroSampleButton"),
   loginForm: document.querySelector("#loginForm"),
   loadSampleButton: document.querySelector("#loadSampleButton"),
@@ -92,10 +93,16 @@ let datasetSummaries = [];
 let selectedDataset = null;
 let pendingDeleteDataset = null;
 
-elements.browseButton.addEventListener("click", () => elements.fileInput.click());
+elements.browseButton.addEventListener("click", () => {
+  if (requireAuthentication()) elements.fileInput.click();
+});
 elements.fileInput.addEventListener("change", (event) => handleFile(event.target.files[0]));
 elements.loadSampleButton.addEventListener("click", loadSampleData);
 elements.heroSampleButton.addEventListener("click", loadSampleData);
+elements.heroAnalyzeButton.addEventListener("click", () => {
+  if (!requireAuthentication()) return;
+  showMemberAnalyzer();
+});
 elements.resetButton.addEventListener("click", resetWorkspace);
 elements.searchInput.addEventListener("input", filterRows);
 elements.themeToggle.addEventListener("click", toggleTheme);
@@ -148,7 +155,7 @@ initializeAuth();
 ["dragenter", "dragover"].forEach((eventName) => {
   elements.uploadZone.addEventListener(eventName, (event) => {
     event.preventDefault();
-    elements.uploadZone.classList.add("is-dragging");
+    if (currentUser) elements.uploadZone.classList.add("is-dragging");
   });
 });
 
@@ -165,6 +172,10 @@ function handleFile(file) {
   clearMessage();
 
   if (!file) return;
+  if (!requireAuthentication()) {
+    elements.fileInput.value = "";
+    return;
+  }
   if (!file.name.toLowerCase().endsWith(".csv")) {
     showMessage("Please choose a file with a .csv extension.", "error");
     return;
@@ -337,6 +348,7 @@ function filterRows(event) {
 }
 
 async function loadSampleData() {
+  if (!requireAuthentication()) return;
   const sample = [
     ["order_id", "customer", "city", "amount", "status"],
     ["ORD-1001", "Alex Morgan", "Melbourne", "1250000", "Completed"],
@@ -652,6 +664,13 @@ function openAuthDialog(view = "login") {
     const firstInput = elements.authDialog.querySelector(`[data-auth-panel="${view}"] input`);
     firstInput?.focus();
   }, 30);
+}
+
+function requireAuthentication() {
+  if (currentUser) return true;
+  openAuthDialog("login");
+  setFormMessage("loginMessage", "Sign in to analyze CSV files and save them to your workspace.");
+  return false;
 }
 
 function closeAuthDialog() {

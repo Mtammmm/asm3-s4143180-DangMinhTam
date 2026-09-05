@@ -20,7 +20,7 @@ Flask REST API, DynamoDB persistence, presigned S3 uploads, Lambda orchestration
 | `POST` | `/datasets` | Bearer JWT | Create metadata and a CSV presigned upload URL |
 | `GET` | `/datasets/{id}` | Bearer JWT | Read owned dataset details |
 | `DELETE` | `/datasets/{id}` | Bearer JWT | Delete S3 objects and metadata |
-| `POST` | `/datasets/{id}/query` | Bearer JWT | Query preview rows while Athena integration is prepared |
+| `POST` | `/datasets/{id}/query` | Bearer JWT | Query the complete CSV dataset with Amazon Athena |
 
 ## Local setup
 
@@ -72,6 +72,9 @@ $env:USERS_TABLE = "CsvInsightUsers"
 $env:DATASETS_TABLE = "CsvInsightDatasets"
 $env:UPLOAD_BUCKET = "stack-output-upload-bucket"
 $env:AVATAR_BUCKET = "stack-output-avatar-bucket"
+$env:ATHENA_DATABASE = "csv_insight"
+$env:ATHENA_OUTPUT_LOCATION = "s3://stack-output-upload-bucket/athena-results/"
+$env:ATHENA_WORKGROUP = "primary"
 $env:JWT_SECRET = "a-long-random-development-secret"
 python run.py
 ```
@@ -101,8 +104,9 @@ docker push "${repository}:latest"
 3. The client uploads the CSV directly to S3.
 4. The S3 event invokes `UploadEventFunction`.
 5. The function changes the status to `processing` and starts one Fargate task.
-6. The processor detects the delimiter, calculates statistics, writes a preview to S3, and changes the status to `ready`.
-7. Processing errors change the status to `failed` with a bounded error message.
+6. The processor detects the delimiter, calculates statistics, writes a preview, and registers an external CSV table in AWS Glue.
+7. The API runs full-dataset filters through Amazon Athena while preserving the frontend response shape.
+8. Processing errors change the status to `failed` with a bounded error message.
 
 ## Demo user seed
 
@@ -119,4 +123,10 @@ Remove-Item Env:DEMO_PASSWORD
 
 ## Current boundary
 
-The query endpoint currently filters the stored 100-row preview. The next backend increment will create Glue tables and execute full-dataset queries through Athena while keeping the same HTTP route and response format.
+The ECS processor copies each validated CSV into an isolated S3 prefix and registers an external table in the AWS Glue Data Catalog. The query endpoint executes SQL through Amazon Athena and returns at most 100 matching rows together with the full match count. Datasets created before Athena was enabled continue to use preview querying until they are reprocessed.
+
+Required runtime settings:
+
+- API Lambda: `ATHENA_DATABASE`, `ATHENA_OUTPUT_LOCATION`, `ATHENA_WORKGROUP`, and optionally `ATHENA_QUERY_TIMEOUT_SECONDS`.
+- ECS processor: `ATHENA_DATABASE`.
+- The runtime role needs Glue Data Catalog access, Athena query access, and read/write access to the upload bucket and Athena result prefix.

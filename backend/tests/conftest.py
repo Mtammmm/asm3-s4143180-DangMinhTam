@@ -12,6 +12,10 @@ class TestConfig:
     DATASETS_TABLE = "test-datasets"
     UPLOAD_BUCKET = "test-uploads"
     AVATAR_BUCKET = "test-avatars"
+    ATHENA_DATABASE = "csv_insight_test"
+    ATHENA_OUTPUT_LOCATION = "s3://test-uploads/athena-results/"
+    ATHENA_WORKGROUP = "primary"
+    ATHENA_QUERY_TIMEOUT_SECONDS = 2
     JWT_SECRET = "test-secret-that-is-long-enough"
     JWT_TTL_SECONDS = 3600
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024

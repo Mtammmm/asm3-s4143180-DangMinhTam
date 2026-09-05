@@ -1,6 +1,6 @@
 # CSV Insight
 
-CSV Insight is a cloud CSV analytics application for AWS Academy Learner Lab. The frontend uploads datasets through presigned S3 URLs, a Lambda function starts an ECS Fargate processor, and a Flask API stores application state in DynamoDB.
+CSV Insight is a cloud CSV analytics application for AWS Academy Learner Lab. The frontend uploads datasets through presigned S3 URLs, a Lambda function starts an ECS Fargate processor, processed datasets are catalogued in AWS Glue and queried through Amazon Athena, and a Flask API stores application state in DynamoDB.
 
 ## Repository layout
 

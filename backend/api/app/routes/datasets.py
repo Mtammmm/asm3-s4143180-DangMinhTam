@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, g, jsonify, request
 
 from ..auth import require_authentication
-from ..aws import create_upload_url, delete_prefix
+from ..athena import run_query
+from ..aws import create_upload_url, delete_glue_table, delete_prefix
 from ..errors import ApiError
 from ..store import get_store
 
@@ -96,6 +97,7 @@ def delete_dataset(dataset_id):
     dataset = require_owned_dataset(dataset_id)
     prefix = f"datasets/{g.current_user['userId']}/{dataset_id}/"
     delete_prefix(current_app.config["UPLOAD_BUCKET"], prefix)
+    delete_glue_table(current_app.config["ATHENA_DATABASE"], dataset.get("athenaTable"))
     get_store().delete_dataset(g.current_user["userId"], dataset_id)
     return "", 204
 
@@ -116,6 +118,14 @@ def query_dataset(dataset_id):
         raise ApiError("Select a valid dataset column.", 400, "INVALID_COLUMN")
     if operator not in {"contains", "equals", "greater", "less", "empty"}:
         raise ApiError("Select a valid query operator.", 400, "INVALID_OPERATOR")
+
+    athena_columns = dataset.get("athenaColumns", [])
+    athena_column = next((item["name"] for item in athena_columns if item["source"] == column), None)
+    if dataset.get("athenaTable") and athena_column:
+        rows, count = run_query(dataset["athenaTable"], athena_columns, athena_column, operator, value)
+        return jsonify({"headers": headers, "rows": rows, "count": count, "queryEngine": "athena"})
+
+    # Datasets processed before Athena was enabled retain preview querying.
     index = headers.index(column)
 
     def matches(row):
@@ -132,4 +142,4 @@ def query_dataset(dataset_id):
         return value.casefold() in actual.casefold()
 
     matched_rows = [row for row in rows if matches(row)]
-    return jsonify({"headers": headers, "rows": matched_rows[:100], "count": len(matched_rows)})
+    return jsonify({"headers": headers, "rows": matched_rows[:100], "count": len(matched_rows), "queryEngine": "preview"})

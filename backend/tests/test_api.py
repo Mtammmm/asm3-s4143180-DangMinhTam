@@ -111,6 +111,41 @@ def test_invalid_dataset_file_is_rejected(authenticated_client):
     assert response.get_json()["error"]["code"] == "INVALID_FILE_TYPE"
 
 
+def test_ready_dataset_uses_athena_query(authenticated_client, monkeypatch):
+    created = authenticated_client.post(
+        "/datasets", json={"name": "orders.csv", "size": 2048, "contentType": "text/csv"}
+    ).get_json()
+    dataset_id = created["dataset"]["id"]
+    dataset_key = next(key for key in MemoryStore.datasets if key[1] == dataset_id)
+    MemoryStore.datasets[dataset_key].update(
+        {
+            "status": "ready",
+            "headers": ["City", "Revenue"],
+            "athenaTable": "dataset_abc",
+            "athenaColumns": [
+                {"source": "City", "name": "city"},
+                {"source": "Revenue", "name": "revenue"},
+            ],
+        }
+    )
+    monkeypatch.setattr(
+        "app.routes.datasets.run_query",
+        lambda *_args: ([['Melbourne', '125.50']], 1),
+    )
+
+    response = authenticated_client.post(
+        f"/datasets/{dataset_id}/query",
+        json={"column": "City", "operator": "contains", "value": "Mel"},
+    )
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "headers": ["City", "Revenue"],
+        "rows": [["Melbourne", "125.50"]],
+        "count": 1,
+        "queryEngine": "athena",
+    }
+
+
 def test_password_reset_flow(client):
     payload = {"email": "demo@csvinsight.com", "fullName": "Demo User", "password": "12345678"}
     assert client.post("/auth/register", json=payload).status_code == 201
