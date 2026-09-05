@@ -5,7 +5,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 
 from ..auth import require_authentication
 from ..athena import run_query
-from ..aws import create_upload_url, delete_glue_table, delete_prefix
+from ..aws import create_dataset_upload, delete_glue_table, delete_prefix, read_preview
 from ..errors import ApiError
 from ..store import get_store
 
@@ -24,8 +24,9 @@ def serialize_dataset(dataset, include_preview=False):
         "stats": dataset.get("stats"),
     }
     if include_preview:
+        preview = read_preview(current_app.config["UPLOAD_BUCKET"], dataset["previewKey"]) if dataset.get("previewKey") and current_app.config["STORAGE_BACKEND"] == "aws" else {}
         response["headers"] = dataset.get("headers", [])
-        response["rows"] = dataset.get("previewRows", [])
+        response["rows"] = preview.get("rows", dataset.get("previewRows", []))
         response["errorMessage"] = dataset.get("errorMessage")
     return response
 
@@ -81,8 +82,36 @@ def create_dataset():
         "createdAt": now,
         "updatedAt": now,
     }
+    if current_app.config["STORAGE_BACKEND"] == "memory":
+        upload = {"url": f"{request.url_root.rstrip('/')}/datasets/{dataset_id}/content", "method": "PUT", "authenticated": True}
+    else:
+        upload = create_dataset_upload(current_app.config["UPLOAD_BUCKET"], s3_key, content_type, file_size)
     get_store().put_dataset(dataset)
-    return jsonify({"dataset": serialize_dataset(dataset), "upload": create_upload_url(current_app.config["UPLOAD_BUCKET"], s3_key, content_type)}), 201
+    return jsonify({"dataset": serialize_dataset(dataset), "upload": upload}), 201
+
+
+@datasets_blueprint.put("/<dataset_id>/content")
+@require_authentication
+def upload_local_dataset(dataset_id):
+    if current_app.config["STORAGE_BACKEND"] != "memory":
+        raise ApiError("Local uploads are unavailable in AWS mode.", 404, "NOT_FOUND")
+    dataset = require_owned_dataset(dataset_id)
+    if dataset["status"] != "uploading":
+        raise ApiError("This dataset has already been uploaded.", 409, "UPLOAD_ALREADY_COMPLETED")
+    content = request.get_data()
+    if len(content) != dataset["fileSize"] or len(content) > current_app.config["MAX_UPLOAD_BYTES"]:
+        raise ApiError("Uploaded size does not match the declared file size.", 413, "INVALID_FILE_SIZE")
+    # The local runner adds backend/workers to sys.path; Lambda never imports this module.
+    from csv_processor.main import analyze_csv
+    try:
+        headers, rows, stats = analyze_csv(content)
+    except (ValueError, UnicodeError) as error:
+        dataset.update(status="failed", errorMessage=str(error)[:500])
+    else:
+        dataset.update(status="ready", headers=headers, previewRows=rows[:100], localRows=rows, stats=stats)
+    dataset["updatedAt"] = datetime.now(timezone.utc).isoformat()
+    get_store().put_dataset(dataset)
+    return jsonify(serialize_dataset(dataset, include_preview=True))
 
 
 @datasets_blueprint.get("/<dataset_id>")
@@ -95,6 +124,8 @@ def get_dataset(dataset_id):
 @require_authentication
 def delete_dataset(dataset_id):
     dataset = require_owned_dataset(dataset_id)
+    if not get_store().begin_delete_dataset(g.current_user["userId"], dataset_id):
+        raise ApiError("Wait for dataset processing to finish before deleting it.", 409, "DATASET_BUSY")
     prefix = f"datasets/{g.current_user['userId']}/{dataset_id}/"
     delete_prefix(current_app.config["UPLOAD_BUCKET"], prefix)
     delete_glue_table(current_app.config["ATHENA_DATABASE"], dataset.get("athenaTable"))
@@ -113,7 +144,7 @@ def query_dataset(dataset_id):
     operator = str(payload.get("operator", "contains"))
     value = str(payload.get("value", ""))
     headers = dataset.get("headers", [])
-    rows = dataset.get("previewRows", [])
+    rows = dataset.get("localRows", dataset.get("previewRows", []))
     if column not in headers:
         raise ApiError("Select a valid dataset column.", 400, "INVALID_COLUMN")
     if operator not in {"contains", "equals", "greater", "less", "empty"}:
@@ -124,6 +155,9 @@ def query_dataset(dataset_id):
     if dataset.get("athenaTable") and athena_column:
         rows, count = run_query(dataset["athenaTable"], athena_columns, athena_column, operator, value)
         return jsonify({"headers": headers, "rows": rows, "count": count, "queryEngine": "athena"})
+
+    if dataset.get("previewKey") and current_app.config["STORAGE_BACKEND"] == "aws":
+        rows = read_preview(current_app.config["UPLOAD_BUCKET"], dataset["previewKey"]).get("rows", [])
 
     # Datasets processed before Athena was enabled retain preview querying.
     index = headers.index(column)
@@ -142,4 +176,4 @@ def query_dataset(dataset_id):
         return value.casefold() in actual.casefold()
 
     matched_rows = [row for row in rows if matches(row)]
-    return jsonify({"headers": headers, "rows": matched_rows[:100], "count": len(matched_rows), "queryEngine": "preview"})
+    return jsonify({"headers": headers, "rows": matched_rows[:100], "count": len(matched_rows), "queryEngine": "local" if "localRows" in dataset else "preview"})

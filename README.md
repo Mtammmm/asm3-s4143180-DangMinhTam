@@ -1,6 +1,6 @@
 # CSV Insight
 
-CSV Insight is a cloud CSV analytics application for AWS Academy Learner Lab. The frontend uploads datasets through presigned S3 URLs, a Lambda function starts an ECS Fargate processor, processed datasets are catalogued in AWS Glue and queried through Amazon Athena, and a Flask API stores application state in DynamoDB.
+CSV Insight is a cloud CSV analytics application for AWS Academy Learner Lab. The frontend uploads datasets through presigned S3 URLs, a Lambda function starts an ECS Fargate processor, normalized datasets are catalogued in AWS Glue and queried through Amazon Athena, and a Flask API stores application state in DynamoDB.
 
 ## Repository layout
 
@@ -27,6 +27,8 @@ python -m venv backend/.venv
 backend/.venv/Scripts/Activate.ps1
 python -m pip install -r backend/api/requirements-dev.txt
 python -m pytest -q
+$env:STORAGE_BACKEND = "memory"
+$env:EXPOSE_RESET_TOKEN = "true"
 python backend/api/run.py
 ```
 
@@ -45,3 +47,7 @@ Open `http://localhost:5500`.
 - AWS Learner Lab deployment: [`docs/aws-learner-lab-manual-setup.md`](docs/aws-learner-lab-manual-setup.md)
 
 Keep real credentials in the ignored `.env` file or, preferably, in the AWS CLI `learner-lab` profile. Never commit them.
+
+Local mode supports registration, CSV upload, processing, querying all rows, and deletion without AWS. Data is held in memory and disappears when the API restarts. Local avatar uploads still require AWS. Cloud uploads use an S3 POST policy that enforces the declared file size.
+
+Assessment readiness: [`docs/assessment-readiness.md`](docs/assessment-readiness.md). Deployment changes for this revision: [`docs/reliability-deployment.md`](docs/reliability-deployment.md).

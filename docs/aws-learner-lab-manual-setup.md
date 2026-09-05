@@ -1,3 +1,5 @@
+> Runtime revision: read [reliability-deployment.md](reliability-deployment.md) alongside this guide for S3 POST uploads, the normalized Glue/Athena dataset, JWT validation, and task failure events.
+
 # Hướng dẫn thiết lập thủ công CSV Insight trên AWS Learner Lab
 
 Tài liệu này hướng dẫn cấu hình AWS CLI, Docker và tạo thủ công toàn bộ tài nguyên AWS cho backend CSV Insight. Đây là quy trình triển khai chuẩn của repository.
@@ -293,7 +295,7 @@ Với từng bucket, mở **Permissions → Cross-origin resource sharing (CORS)
 [
   {
     "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT"],
+    "AllowedMethods": ["GET", "PUT", "POST"],
     "AllowedOrigins": ["http://localhost:5500"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 900

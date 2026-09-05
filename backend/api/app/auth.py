@@ -26,7 +26,8 @@ def require_authentication(view):
         if scheme.lower() != "bearer" or not token:
             raise ApiError("A valid Bearer token is required.", 401, "AUTHENTICATION_REQUIRED")
         try:
-            claims = jwt.decode(token, current_app.config["JWT_SECRET"], algorithms=["HS256"])
+            claims = jwt.decode(token, current_app.config["JWT_SECRET"], algorithms=["HS256"],
+                                options={"require": ["sub", "email", "iat", "exp"]})
         except jwt.ExpiredSignatureError as error:
             raise ApiError("Your session has expired.", 401, "TOKEN_EXPIRED") from error
         except jwt.InvalidTokenError as error:

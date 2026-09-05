@@ -4,6 +4,7 @@ from threading import Lock
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 from flask import current_app
 
 
@@ -47,6 +48,22 @@ class MemoryStore:
     def list_datasets(self, user_id):
         items = [deepcopy(item) for (owner, _), item in self.datasets.items() if owner == user_id]
         return sorted(items, key=lambda item: item["createdAt"], reverse=True)
+
+    def consume_reset_token(self, user_id, token_hash, changes):
+        with self.lock:
+            user = self.users.get(user_id)
+            if not user or user.get("resetTokenHash") != token_hash:
+                return False
+            user.update(deepcopy(changes))
+            return True
+
+    def begin_delete_dataset(self, user_id, dataset_id):
+        with self.lock:
+            item = self.datasets.get((user_id, dataset_id))
+            if not item or item["status"] in {"dispatching", "processing"}:
+                return False
+            item["status"] = "deleting"
+            return True
 
     def get_dataset(self, user_id, dataset_id):
         return deepcopy(self.datasets.get((user_id, dataset_id)))
@@ -93,9 +110,47 @@ class DynamoStore:
         return _convert_numbers(response["Attributes"])
 
     def list_datasets(self, user_id):
-        response = self.datasets.query(KeyConditionExpression=Key("userId").eq(user_id), ScanIndexForward=False)
-        items = _convert_numbers(response.get("Items", []))
+        params = {"KeyConditionExpression": Key("userId").eq(user_id), "ScanIndexForward": False}
+        items = []
+        while True:
+            response = self.datasets.query(**params)
+            items.extend(_convert_numbers(response.get("Items", [])))
+            if not response.get("LastEvaluatedKey"):
+                break
+            params["ExclusiveStartKey"] = response["LastEvaluatedKey"]
         return sorted(items, key=lambda item: item["createdAt"], reverse=True)
+
+    def consume_reset_token(self, user_id, token_hash, changes):
+        names = {f"#f{i}": key for i, key in enumerate(changes)}
+        values = {f":v{i}": value for i, value in enumerate(changes.values())}
+        expression = ", ".join(f"#f{i} = :v{i}" for i in range(len(changes)))
+        values[":expected"] = token_hash
+        try:
+            self.users.update_item(
+                Key={"userId": user_id}, UpdateExpression=f"SET {expression}",
+                ConditionExpression="resetTokenHash = :expected",
+                ExpressionAttributeNames=names, ExpressionAttributeValues=values,
+            )
+            return True
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
+
+    def begin_delete_dataset(self, user_id, dataset_id):
+        try:
+            self.datasets.update_item(
+                Key={"userId": user_id, "datasetId": dataset_id},
+                UpdateExpression="SET #status = :deleting",
+                ConditionExpression="attribute_exists(datasetId) AND #status <> :dispatching AND #status <> :processing",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":deleting": "deleting", ":dispatching": "dispatching", ":processing": "processing"},
+            )
+            return True
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
 
     def get_dataset(self, user_id, dataset_id):
         response = self.datasets.get_item(Key={"userId": user_id, "datasetId": dataset_id})

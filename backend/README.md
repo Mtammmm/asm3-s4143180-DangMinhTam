@@ -76,7 +76,7 @@ $env:ATHENA_DATABASE = "csv_insight"
 $env:ATHENA_OUTPUT_LOCATION = "s3://stack-output-upload-bucket/athena-results/"
 $env:ATHENA_WORKGROUP = "primary"
 $env:JWT_SECRET = "a-long-random-development-secret"
-python run.py
+python backend/api/run.py
 ```
 
 As a local-only shortcut, copy `.env.example` to `.env` and fill the three temporary Learner Lab credential variables. `python-dotenv` loads this file automatically. The populated `.env` is ignored by Git and must never be committed or shared. Replace all three credential values whenever Learner Lab starts a new session.
@@ -103,8 +103,8 @@ docker push "${repository}:latest"
 2. Flask stores `uploading` metadata in DynamoDB and returns a presigned S3 URL.
 3. The client uploads the CSV directly to S3.
 4. The S3 event invokes `UploadEventFunction`.
-5. The function changes the status to `processing` and starts one Fargate task.
-6. The processor detects the delimiter, calculates statistics, writes a preview, and registers an external CSV table in AWS Glue.
+5. The function conditionally claims `uploading` metadata as `dispatching` and invokes Fargate with a stable idempotency token. The worker atomically claims `processing`.
+6. The processor validates actual upload size, normalizes CSV, writes the preview to S3, and registers normalized JSON Lines in Glue. Athena and the preview use the same data.
 7. The API runs full-dataset filters through Amazon Athena while preserving the frontend response shape.
 8. Processing errors change the status to `failed` with a bounded error message.
 
@@ -123,10 +123,18 @@ Remove-Item Env:DEMO_PASSWORD
 
 ## Current boundary
 
-The ECS processor copies each validated CSV into an isolated S3 prefix and registers an external table in the AWS Glue Data Catalog. The query endpoint executes SQL through Amazon Athena and returns at most 100 matching rows together with the full match count. Datasets created before Athena was enabled continue to use preview querying until they are reprocessed.
+The ECS processor writes normalized JSON Lines into an isolated `athena-v2/` S3 prefix and registers a Hive JSON SerDe table in Glue. Duplicate headers receive unique display names. CSV rows with excess fields and files exceeding the configured size limit are rejected. Preview rows are stored in S3, not DynamoDB. The query endpoint executes SQL through Amazon Athena and returns at most 100 matching rows together with the full match count. Datasets created before Athena was enabled continue to use preview querying until they are reprocessed.
 
 Required runtime settings:
 
 - API Lambda: `ATHENA_DATABASE`, `ATHENA_OUTPUT_LOCATION`, `ATHENA_WORKGROUP`, and optionally `ATHENA_QUERY_TIMEOUT_SECONDS`.
 - ECS processor: `ATHENA_DATABASE`.
 - The runtime role needs Glue Data Catalog access, Athena query access, and read/write access to the upload bucket and Athena result prefix.
+
+## Runtime and recovery updates
+
+See [`../docs/reliability-deployment.md`](../docs/reliability-deployment.md) before deploying this revision. AWS mode requires a random JWT secret of at least 32 characters and disallows `EXPOSE_RESET_TOKEN=true`. Local mode may expose a recovery code for testing. For email delivery configure `RESET_EMAIL_SENDER` and SES permissions. Password values remain stored directly as required for this project; this revision does not add password hashing.
+
+Local mode exposes authenticated `PUT /datasets/{id}/content` for actual CSV bytes and queries all uploaded rows. Its response preview is capped at 100 rows. The runtime imports the shared parser from `backend/workers`. The deployed Lambda does not use that local-only route.
+
+Deletion is rejected while a dataset is dispatching or processing; a conditional `deleting` transition prevents races with the upload event. Failed cleanup can be retried. Configure the stopped-task and launch-failure handling described in the deployment notes to avoid unfinished datasets after infrastructure failures.

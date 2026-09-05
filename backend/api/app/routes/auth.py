@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, jsonify, request
 from ..auth import create_access_token
 from ..errors import ApiError
 from ..store import get_store
+from ..aws import send_reset_email
 
 
 auth_blueprint = Blueprint("auth", __name__)
@@ -16,7 +17,7 @@ email_pattern = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 def public_user(user):
-    return {key: value for key, value in user.items() if key not in {"password", "passwordHash"}}
+    return {key: user[key] for key in ("userId", "email", "fullName", "avatarKey", "accountStatus", "createdAt", "updatedAt") if key in user}
 
 
 @auth_blueprint.post("/register")
@@ -69,6 +70,8 @@ def forgot_password():
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "")).strip().lower()
     store = get_store()
+    if not current_app.config["EXPOSE_RESET_TOKEN"] and not current_app.config.get("RESET_EMAIL_SENDER"):
+        raise ApiError("Password recovery is not configured. Contact the application administrator.", 503, "RECOVERY_UNAVAILABLE")
     user = store.get_user_by_email(email)
     response = {"message": "If an account exists for that email, a reset request has been created."}
     if not user:
@@ -84,6 +87,8 @@ def forgot_password():
     )
     if current_app.config["EXPOSE_RESET_TOKEN"]:
         response["resetToken"] = reset_token
+    else:
+        send_reset_email(email, reset_token)
     return jsonify(response)
 
 
@@ -106,13 +111,15 @@ def reset_password():
         raise ApiError("The password reset token is invalid.", 400, "INVALID_RESET_TOKEN") from error
     if expires_at <= datetime.now(timezone.utc):
         raise ApiError("The password reset token has expired.", 400, "RESET_TOKEN_EXPIRED")
-    store.update_user(
+    if not store.consume_reset_token(
         user["userId"],
+        supplied_hash,
         {
             "password": new_password,
             "resetTokenHash": "",
             "resetTokenExpiresAt": "",
             "updatedAt": datetime.now(timezone.utc).isoformat(),
         },
-    )
+    ):
+        raise ApiError("The password reset token is invalid or has already been used.", 400, "INVALID_RESET_TOKEN")
     return jsonify({"message": "Password was reset successfully."})

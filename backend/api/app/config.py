@@ -17,9 +17,10 @@ class Config:
     ATHENA_OUTPUT_LOCATION = os.getenv("ATHENA_OUTPUT_LOCATION", "")
     ATHENA_WORKGROUP = os.getenv("ATHENA_WORKGROUP", "primary")
     ATHENA_QUERY_TIMEOUT_SECONDS = int(os.getenv("ATHENA_QUERY_TIMEOUT_SECONDS", "20"))
-    JWT_SECRET = os.getenv("JWT_SECRET", "local-development-secret-change-before-deploy")
+    JWT_SECRET = os.getenv("JWT_SECRET", "")
     JWT_TTL_SECONDS = int(os.getenv("JWT_TTL_SECONDS", "3600"))
     MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
     EXPOSE_RESET_TOKEN = os.getenv("EXPOSE_RESET_TOKEN", "false").lower() == "true"
+    RESET_EMAIL_SENDER = os.getenv("RESET_EMAIL_SENDER", "")
     FRONTEND_ORIGINS = [origin.strip() for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5500").split(",")]
     TESTING = False

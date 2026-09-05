@@ -78,13 +78,19 @@
           method: "POST",
           body: JSON.stringify({ name, size, contentType })
         });
-        const uploaded = await fetch(created.upload.url, {
-          method: created.upload.method || "PUT",
-          headers: { "Content-Type": contentType },
-          body: file
-        });
+        let body = file;
+        const headers = {};
+        if (created.upload.method === "POST") {
+          body = new FormData();
+          Object.entries(created.upload.fields).forEach(([key, value]) => body.append(key, value));
+          body.append("file", file);
+        } else {
+          headers["Content-Type"] = contentType;
+        }
+        if (created.upload.authenticated) headers.Authorization = `Bearer ${getStoredAccessToken()}`;
+        const uploaded = await fetch(created.upload.url, { method: created.upload.method || "PUT", headers, body });
         if (!uploaded.ok) throw new Error("The CSV could not be uploaded to cloud storage.");
-        return created.dataset;
+        return created.upload.authenticated ? uploaded.json() : created.dataset;
       }
       await wait(380);
       const dataset = {
@@ -167,6 +173,12 @@
       return request("/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email })
+      });
+    },
+
+    async resetPassword(email, resetToken, newPassword) {
+      return request("/auth/reset-password", {
+        method: "POST", body: JSON.stringify({ email, resetToken, newPassword })
       });
     },
 

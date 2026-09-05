@@ -10,12 +10,12 @@ python -m http.server 5500 --directory frontend
 
 Open `http://localhost:5500`.
 
-Authentication uses the Flask backend. Start it on `http://localhost:8080`, then register an account from the frontend. Passwords are hashed by the backend and stored in the configured user store.
+Authentication uses the Flask backend. Start it on `http://localhost:8080`, then register an account from the frontend. The backend stores password values directly in the configured user store, as required for this project.
 
 ## Completed frontend flows
 
 - Responsive landing page with light and dark themes.
-- Sign in, sign up, forgot password, session persistence, and sign out states.
+- Sign in, sign up, recovery-code request, password reset, session persistence, and sign out states.
 - Authenticated dashboard and analyzer navigation.
 - CSV drag and drop, file validation, parsing, preview, search, and statistics.
 - Dataset library with loading, error, empty, filtered, and populated states.
@@ -26,7 +26,7 @@ Authentication uses the Flask backend. Start it on `http://localhost:8080`, then
 
 ## Service boundary
 
-Set the API base URL in `config.js`. It defaults to the local Flask backend; replace it with the API Gateway URL for deployment:
+Set the API base URL in `config.js`. On localhost it selects `http://localhost:8080`; other hosts use the configured API Gateway URL. An explicit value supplied before `config.js` takes precedence:
 
 ```html
 <script>window.CSV_INSIGHT_API_URL = "https://api.example.com/v1";</script>
@@ -47,12 +47,12 @@ The frontend expects these endpoints:
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/datasets` | List datasets owned by the signed-in user |
-| `POST` | `/datasets` | Create a dataset and return its metadata, statistics, headers, and preview rows |
+| `POST` | `/datasets` | Create uploading metadata and a signed upload target; upload the file, then poll for processing completion |
 | `GET` | `/datasets/{datasetId}` | Get dataset details and preview rows |
 | `POST` | `/datasets/{datasetId}/query` | Execute a simple analytical query |
 | `DELETE` | `/datasets/{datasetId}` | Delete the dataset and related metadata |
 
-All non-empty responses must use JSON. Errors should return `{ "message": "Readable error message" }` with the appropriate HTTP status.
+All non-empty responses must use JSON. Errors return `{ "error": { "code": "ERROR_CODE", "message": "Readable error message" } }` with the appropriate HTTP status.
 
 ## Dataset response shape
 
@@ -80,7 +80,11 @@ List responses may omit `headers` and `rows`. Query responses must return `heade
 
 - API Gateway should expose the REST routes listed above.
 - Lambda should validate ownership, orchestrate uploads, write DynamoDB metadata, and start processing.
-- For large files, replace the JSON create request with a presigned S3 upload flow while keeping the public `DatasetApi` methods unchanged.
+- CSV uploads use presigned S3 POST fields with an exact file-size policy. Avatar uploads still use PUT. Local CSV uploads use an authenticated API PUT route.
 - ECS Fargate should calculate statistics and update dataset status from `processing` to `ready` or `failed`.
 - Athena query results should be normalized to the query response shape expected by the UI.
 - CloudFront should serve this directory and route API traffic to API Gateway if a shared domain is used.
+
+The dataset library polls every five seconds while files are uploading or processing. Deletion is disabled during active processing. Query results identify preview-only legacy queries. For local recovery demos set `EXPOSE_RESET_TOKEN=true`; the reset form fills in the returned code. AWS recovery uses SES and never returns the code in the response.
+
+Frontend API contract tests (Node.js): `node --test frontend/tests/api.test.cjs`. These tests cover S3 POST uploads, authenticated local uploads, password reset requests, and config overrides; they do not replace browser interaction tests.

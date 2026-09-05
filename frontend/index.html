@@ -340,7 +340,7 @@
           <header class="auth-heading">
             <p>Account recovery</p>
             <h2>Reset your password</h2>
-            <span>Enter your email to preview the recovery flow. No email will be sent yet.</span>
+            <span>Request a recovery code, then use it to choose a new password.</span>
           </header>
           <form class="auth-form" id="forgotForm" novalidate>
             <div class="form-field">
@@ -349,9 +349,38 @@
               <span class="field-error" id="forgotEmailError"></span>
             </div>
             <div class="auth-form-message" id="forgotMessage" role="status" aria-live="polite"></div>
-            <button class="button button-primary auth-submit" type="submit">Preview reset request</button>
+            <button class="button button-primary auth-submit" type="submit">Request recovery code</button>
           </form>
+          <p class="auth-switch"><button type="button" data-auth-view="reset">I already have a recovery code</button></p>
           <p class="auth-switch"><button type="button" data-auth-view="login">Return to sign in</button></p>
+        </div>
+        <div class="auth-view" data-auth-panel="reset" hidden>
+          <header class="auth-heading">
+            <p>Account recovery</p>
+            <h2>Choose a new password</h2>
+            <span>Your recovery code is valid for 15 minutes and can be used once.</span>
+          </header>
+          <form class="auth-form" id="resetPasswordForm">
+            <div class="form-field">
+              <label for="resetEmail">Email address</label>
+              <input id="resetEmail" name="email" type="email" autocomplete="email" required>
+            </div>
+            <div class="form-field">
+              <label for="resetCode">Recovery code</label>
+              <input id="resetCode" name="resetToken" type="text" autocomplete="one-time-code" required>
+            </div>
+            <div class="form-field">
+              <label for="resetNewPassword">New password</label>
+              <input id="resetNewPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+            </div>
+            <div class="form-field">
+              <label for="resetConfirmPassword">Confirm password</label>
+              <input id="resetConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+            </div>
+            <div class="auth-form-message" id="resetPasswordMessage" role="status" aria-live="polite"></div>
+            <button class="button button-primary auth-submit" type="submit">Reset password</button>
+          </form>
+          <p class="auth-switch"><button type="button" data-auth-view="forgot">Request another code</button></p>
         </div>
       </section>
     </div>

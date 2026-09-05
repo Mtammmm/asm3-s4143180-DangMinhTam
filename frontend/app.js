@@ -31,6 +31,7 @@ const elements = {
   fileInput: document.querySelector("#fileInput"),
   fileMeta: document.querySelector("#fileMeta"),
   forgotForm: document.querySelector("#forgotForm"),
+  resetPasswordForm: document.querySelector("#resetPasswordForm"),
   guestAuth: document.querySelector("#guestAuth"),
   heroAnalyzeButton: document.querySelector("#heroAnalyzeButton"),
   heroSampleButton: document.querySelector("#heroSampleButton"),
@@ -92,6 +93,7 @@ let currentUser = null;
 let datasetSummaries = [];
 let selectedDataset = null;
 let pendingDeleteDataset = null;
+let datasetRefreshTimer = null;
 
 elements.browseButton.addEventListener("click", () => {
   if (requireAuthentication()) elements.fileInput.click();
@@ -111,6 +113,7 @@ elements.authDialog.addEventListener("click", handleDialogBackdropClick);
 elements.loginForm.addEventListener("submit", handleLogin);
 elements.signupForm.addEventListener("submit", handleSignup);
 elements.forgotForm.addEventListener("submit", handleForgotPassword);
+elements.resetPasswordForm.addEventListener("submit", handleResetPassword);
 elements.signOutButton.addEventListener("click", signOut);
 elements.datasetDialogClose.addEventListener("click", () => elements.datasetDialog.close());
 elements.datasetSearchInput.addEventListener("input", renderDatasetLibrary);
@@ -193,7 +196,8 @@ function handleFile(file) {
       if (!dataset.headers.length || !dataset.rows.length) throw new Error("The file does not contain valid data.");
       displayDataset(dataset, file.name, file.size);
       if (currentUser) {
-        await DatasetApi.createDataset({ owner: currentUser.email, name: file.name, size: file.size, headers: dataset.headers, rows: dataset.rows, file, contentType: file.type || "text/csv" });
+        const saved = await DatasetApi.createDataset({ owner: currentUser.email, name: file.name, size: file.size, headers: dataset.headers, rows: dataset.rows, file, contentType: file.type || "text/csv" });
+        if (saved.status === "failed") throw new Error(saved.errorMessage || "Dataset processing failed.");
         await loadDatasetLibrary({ silent: true });
       }
       showMessage(`${file.name} was loaded successfully.`, "success");
@@ -241,7 +245,19 @@ function parseCSV(text) {
   if (!lines.length) return { headers: [], rows: [] };
 
   const [headers, ...rows] = lines;
-  const normalizedHeaders = headers.map((header, index) => header || `Column ${index + 1}`);
+  if (quoted) throw new Error("The CSV contains an unclosed quoted field.");
+  if (headers.length > 500) throw new Error("CSV files support at most 500 columns.");
+  const used = new Set();
+  const normalizedHeaders = headers.map((header, index) => {
+    const base = header || `Column ${index + 1}`;
+    if (base.length > 200) throw new Error("Column names must not exceed 200 characters.");
+    let name = base;
+    let suffix = 2;
+    while (used.has(name)) name = `${base} (${suffix++})`;
+    used.add(name);
+    return name;
+  });
+  if (rows.some((values) => values.length > normalizedHeaders.length)) throw new Error("A CSV row contains more values than the header.");
   return {
     headers: normalizedHeaders,
     rows: rows.map((values) => normalizedHeaders.map((_, index) => values[index] ?? ""))
@@ -402,6 +418,7 @@ function formatBytes(bytes) {
 }
 
 async function loadDatasetLibrary(options = {}) {
+  window.clearTimeout(datasetRefreshTimer);
   if (!currentUser) return;
   const silent = options && options.silent === true;
   if (!silent) {
@@ -412,8 +429,12 @@ async function loadDatasetLibrary(options = {}) {
   }
   try {
     datasetSummaries = await DatasetApi.listDatasets(currentUser.email);
+    if (!currentUser) return;
     elements.datasetError.hidden = true;
     renderDatasetLibrary();
+    if (datasetSummaries.some((item) => ["uploading", "dispatching", "processing"].includes(item.status))) {
+      datasetRefreshTimer = window.setTimeout(() => loadDatasetLibrary({ silent: true }), 5000);
+    }
   } catch (error) {
     elements.datasetErrorMessage.textContent = error.message || "Please try again.";
     elements.datasetError.hidden = false;
@@ -479,6 +500,7 @@ function renderDatasetLibrary() {
     deleteButton.className = "dataset-delete-button";
     deleteButton.type = "button";
     deleteButton.textContent = "Delete";
+    deleteButton.disabled = ["dispatching", "processing"].includes(dataset.status);
     deleteButton.addEventListener("click", () => openDeleteDialog(dataset));
     actions.append(viewButton, deleteButton);
     row.append(identity, metrics, actions);
@@ -567,7 +589,7 @@ async function runDatasetQuery(event) {
       value: elements.queryValue.value.trim()
     });
     renderDataTable(elements.datasetDetailTable, result.headers, result.rows.slice(0, MAX_PREVIEW_ROWS));
-    elements.queryMessage.textContent = `${result.count.toLocaleString("en-US")} matching rows found.`;
+    elements.queryMessage.textContent = `${result.count.toLocaleString("en-US")} matching rows found. Showing up to ${MAX_PREVIEW_ROWS} rows.${result.queryEngine === "preview" ? " This older dataset searches its preview only; upload it again to search all rows." : ""}`;
   } catch (error) {
     elements.queryMessage.textContent = error.message || "The query could not be completed.";
     elements.queryMessage.classList.add("error");
@@ -682,7 +704,7 @@ function handleDialogBackdropClick(event) {
 }
 
 function switchAuthView(view) {
-  const validView = ["login", "signup", "forgot"].includes(view) ? view : "login";
+  const validView = ["login", "signup", "forgot", "reset"].includes(view) ? view : "login";
   document.querySelectorAll("[data-auth-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.authPanel !== validView;
   });
@@ -814,11 +836,42 @@ async function handleForgotPassword(event) {
   setSubmitState(elements.forgotForm, true, "Preparing request");
   try {
     const result = await AuthApi.forgotPassword(emailInput.value.trim());
-    setFormMessage("forgotMessage", result.message, "success");
+    elements.resetPasswordForm.reset();
+    elements.resetPasswordForm.elements.email.value = emailInput.value.trim();
+    elements.resetPasswordForm.elements.resetToken.value = result.resetToken || "";
+    openAuthDialog("reset");
+    setFormMessage("resetPasswordMessage", result.resetToken
+      ? "Local demo: your recovery code has been filled in."
+      : "If an account exists, a recovery code has been sent. Check your inbox.", "success");
   } catch (error) {
     setFormMessage("forgotMessage", error.message, "error");
   } finally {
     setSubmitState(elements.forgotForm, false, "");
+  }
+}
+
+async function handleResetPassword(event) {
+  event.preventDefault();
+  const form = elements.resetPasswordForm;
+  if (!form.reportValidity()) return;
+  const { email, resetToken, newPassword, confirmPassword } = form.elements;
+  if (newPassword.value !== confirmPassword.value) {
+    setFormMessage("resetPasswordMessage", "Passwords must match.", "error");
+    confirmPassword.focus();
+    return;
+  }
+  setSubmitState(form, true, "Resetting password");
+  try {
+    await AuthApi.resetPassword(email.value.trim(), resetToken.value.trim(), newPassword.value);
+    clearAuthSession();
+    renderAuthUser(null);
+    form.reset();
+    openAuthDialog("login");
+    setFormMessage("loginMessage", "Password reset successfully. Sign in with your new password.", "success");
+  } catch (error) {
+    setFormMessage("resetPasswordMessage", error.message, "error");
+  } finally {
+    setSubmitState(form, false, "");
   }
 }
 
@@ -1007,6 +1060,7 @@ async function handleAvatarUpload(event) {
 }
 
 function signOut() {
+  window.clearTimeout(datasetRefreshTimer);
   clearAuthSession();
   closeAuthDialog();
   if (elements.datasetDialog.open) elements.datasetDialog.close();

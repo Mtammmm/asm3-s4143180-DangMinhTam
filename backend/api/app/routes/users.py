@@ -7,13 +7,14 @@ from ..auth import require_authentication
 from ..aws import create_download_url, create_upload_url
 from ..errors import ApiError
 from ..store import get_store
+from .auth import public_user
 
 
 users_blueprint = Blueprint("users", __name__)
 
 
 def serialize_user(user):
-    response = {key: value for key, value in user.items() if key not in {"password", "passwordHash"}}
+    response = public_user(user)
     response["avatarUrl"] = create_download_url(current_app.config["AVATAR_BUCKET"], user.get("avatarKey"))
     return response
 

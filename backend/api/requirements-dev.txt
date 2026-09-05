@@ -1,2 +1,3 @@
 -r requirements.txt
 pytest==8.4.1
+moto[dynamodb,s3,glue]==5.1.12
