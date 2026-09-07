@@ -54,7 +54,7 @@ def change_password():
         raise ApiError("Choose a new password that differs from your current password.", 400, "PASSWORD_UNCHANGED")
     store = get_store()
     user = store.get_user_by_id(g.current_user["userId"])
-    if not user or not secrets.compare_digest(str(user.get("password", "")), current_password):
+    if not user or not secrets.compare_digest(str(user.get("password", "")).encode("utf-8"), current_password.encode("utf-8")):
         raise ApiError("Your current password is incorrect.", 401, "INVALID_CURRENT_PASSWORD")
     store.update_user(
         g.current_user["userId"],

@@ -1,53 +1,35 @@
-# CSV Insight
+﻿# CSV Insight
 
-CSV Insight is a cloud CSV analytics application for AWS Academy Learner Lab. The frontend uploads datasets through presigned S3 URLs, a Lambda function starts an ECS Fargate processor, normalized datasets are catalogued in AWS Glue and queried through Amazon Athena, and a Flask API stores application state in DynamoDB.
+CSV analytics application with a static frontend, Flask API, DynamoDB, S3, ECS and Glue/Athena.
 
-## Repository layout
+- backend/api/: Flask application and Lambda entrypoint.
+- backend/functions/: upload and task-event Lambda handler.
+- backend/workers/: CSV processor and Dockerfile.
+- backend/scripts/: account seed script.
+- backend/tests/, frontend/tests/: automated tests.
+- frontend/: HTML, CSS, JavaScript and required images.
 
-```text
-.
-├── backend/
-│   ├── api/                     # Flask API and API Lambda entrypoint
-│   ├── functions/upload_event/  # S3 event Lambda
-│   ├── workers/csv_processor/   # ECS Fargate processor
-│   ├── scripts/                 # Maintenance and seed scripts
-│   └── tests/                   # Backend test suite
-├── frontend/                    # Static HTML, CSS, and JavaScript client
-├── docs/                        # Manual deployment documentation
-├── .env.example                 # Local environment template
-└── pytest.ini                   # Shared test configuration
-```
+## Run locally
 
-## Quick start
+From the repository root in PowerShell:
 
-From the repository root:
+    python -m venv backend/.venv
+    & backend/.venv/Scripts/python.exe -m pip install -r backend/api/requirements-dev.txt
+    $env:STORAGE_BACKEND = "memory"
+    $env:EXPOSE_RESET_TOKEN = "true"
+    & backend/.venv/Scripts/python.exe backend/api/run.py
 
-```powershell
-python -m venv backend/.venv
-backend/.venv/Scripts/Activate.ps1
-python -m pip install -r backend/api/requirements-dev.txt
-python -m pytest -q
-$env:STORAGE_BACKEND = "memory"
-$env:EXPOSE_RESET_TOKEN = "true"
-python backend/api/run.py
-```
+In a second terminal:
 
-Serve the frontend in a second terminal:
+    python -m http.server 5500 --directory frontend
 
-```powershell
-python -m http.server 5500 --directory frontend
-```
+Open http://localhost:5500. Local CSV data disappears when the API restarts. Local avatar uploads require AWS.
 
-Open `http://localhost:5500`.
+Use .env.example for configuration. Keep real credentials in ignored .env or a local AWS profile. AWS mode requires a random JWT secret of at least 32 characters and EXPOSE_RESET_TOKEN=false. Password storage remains unchanged.
 
-## Documentation
+## Check the code
 
-- Backend behavior and commands: [`backend/README.md`](backend/README.md)
-- Frontend behavior and API contract: [`frontend/README.md`](frontend/README.md)
-- AWS Learner Lab deployment: [`docs/aws-learner-lab-manual-setup.md`](docs/aws-learner-lab-manual-setup.md)
+    & backend/.venv/Scripts/python.exe -m pytest -q
+    node --test frontend/tests/api.test.cjs
 
-Keep real credentials in the ignored `.env` file or, preferably, in the AWS CLI `learner-lab` profile. Never commit them.
-
-Local mode supports registration, CSV upload, processing, querying all rows, and deletion without AWS. Data is held in memory and disappears when the API restarts. Local avatar uploads still require AWS. Cloud uploads use an S3 POST policy that enforces the declared file size.
-
-Assessment readiness: [`docs/assessment-readiness.md`](docs/assessment-readiness.md). Deployment changes for this revision: [`docs/reliability-deployment.md`](docs/reliability-deployment.md).
+Build the worker with docker build -t csv-insight-processor backend/workers/csv_processor. Frontend API selection is in frontend/config.js.

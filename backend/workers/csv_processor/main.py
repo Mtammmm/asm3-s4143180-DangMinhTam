@@ -14,6 +14,7 @@ ATHENA_DATABASE = os.getenv("ATHENA_DATABASE", "csv_insight")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
 MAX_COLUMNS = 500
 MAX_HEADER_LENGTH = 200
+MAX_PREVIEW_BYTES = 1024 * 1024
 
 
 def detect_dialect(text):
@@ -66,6 +67,21 @@ def canonical_json_lines(columns, rows):
     # https://docs.aws.amazon.com/athena/latest/ug/hive-json-serde.html (accessed Sep. 5, 2026).
     names = [column["name"] for column in columns]
     return "".join(json.dumps(dict(zip(names, row)), ensure_ascii=False) + "\n" for row in rows).encode("utf-8")
+
+
+def create_preview(headers, rows):
+    preview = {"headers": headers, "rows": []}
+    size = len(json.dumps(preview, ensure_ascii=True).encode("utf-8"))
+    for row in rows[:100]:
+        row_size = len(json.dumps(row, ensure_ascii=True).encode("utf-8")) + 2
+        if size + row_size > MAX_PREVIEW_BYTES - 32:
+            if not preview["rows"]:
+                raise ValueError("A CSV row is too large to preview. Use smaller rows.")
+            preview["rowsTruncated"] = True
+            break
+        preview["rows"].append(row)
+        size += row_size
+    return preview
 
 
 def athena_columns(headers):
@@ -160,6 +176,7 @@ def run():
         columns = athena_columns(headers)
         if len(json.dumps({"headers": headers, "columns": columns}, ensure_ascii=False).encode("utf-8")) > 200_000:
             raise ValueError("CSV column metadata is too large. Shorten the column names or reduce the column count.")
+        preview = create_preview(headers, rows)
         athena_key = f"datasets/{user_id}/{dataset_id}/athena-v2/rows.jsonl"
         s3.put_object(Bucket=bucket, Key=athena_key, Body=canonical_json_lines(columns, rows), ContentType="application/x-ndjson")
         table_name = register_glue_table(
@@ -169,7 +186,7 @@ def run():
         s3.put_object(
             Bucket=bucket,
             Key=preview_key,
-            Body=json.dumps({"headers": headers, "rows": rows[:100]}, ensure_ascii=False).encode("utf-8"),
+            Body=json.dumps(preview, ensure_ascii=False).encode("utf-8"),
             ContentType="application/json",
         )
         update_dataset(

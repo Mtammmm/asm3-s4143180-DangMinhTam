@@ -6,6 +6,7 @@ import boto3
 from flask import current_app
 
 from .errors import ApiError
+from .response_limits import ResponseRows, MAX_RESPONSE_ROWS
 
 
 SAFE_IDENTIFIER = re.compile(r"^[a-z_][a-z0-9_]{0,254}$")
@@ -74,14 +75,25 @@ def run_query(table_name, athena_columns, selected_column, operator, value):
         client.stop_query_execution(QueryExecutionId=execution_id)
         raise ApiError("The dataset query timed out.", 504, "ATHENA_QUERY_TIMEOUT")
 
-    result = client.get_query_results(QueryExecutionId=execution_id, MaxResults=101)["ResultSet"]
-    raw_rows = result.get("Rows", [])
-    rows = []
+    selected_rows = ResponseRows()
     count = 0
-    for raw_row in raw_rows[1:]:
-        values = [cell.get("VarCharValue", "") for cell in raw_row.get("Data", [])]
-        values.extend([""] * (len(athena_columns) + 1 - len(values)))
-        if values[-1]:
-            count = int(values[-1])
-        rows.append(values[:-1])
-    return rows, count
+    params = {"QueryExecutionId": execution_id, "MaxResults": MAX_RESPONSE_ROWS + 1}
+    first_page = True
+    while True:
+        response = client.get_query_results(**params)
+        raw_rows = response["ResultSet"].get("Rows", [])
+        # Only the first result page contains the column-name row.
+        if first_page:
+            raw_rows = raw_rows[1:]
+            first_page = False
+        for raw_row in raw_rows:
+            values = [cell.get("VarCharValue", "") for cell in raw_row.get("Data", [])]
+            values.extend([""] * (len(athena_columns) + 1 - len(values)))
+            if values[-1]:
+                count = int(values[-1])
+            if not selected_rows.append(values[:-1]) or len(selected_rows.rows) == MAX_RESPONSE_ROWS:
+                return selected_rows.rows, count
+        if not response.get("NextToken"):
+            break
+        params["NextToken"] = response["NextToken"]
+    return selected_rows.rows, count

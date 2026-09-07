@@ -7,6 +7,7 @@ from ..auth import require_authentication
 from ..athena import run_query
 from ..aws import create_dataset_upload, delete_glue_table, delete_prefix, read_preview
 from ..errors import ApiError
+from ..response_limits import bounded_response_rows
 from ..store import get_store
 
 
@@ -26,7 +27,10 @@ def serialize_dataset(dataset, include_preview=False):
     if include_preview:
         preview = read_preview(current_app.config["UPLOAD_BUCKET"], dataset["previewKey"]) if dataset.get("previewKey") and current_app.config["STORAGE_BACKEND"] == "aws" else {}
         response["headers"] = dataset.get("headers", [])
-        response["rows"] = preview.get("rows", dataset.get("previewRows", []))
+        rows = preview.get("rows", dataset.get("previewRows", []))
+        response["rows"] = bounded_response_rows(rows)
+        if len(response["rows"]) < len(rows) or preview.get("rowsTruncated"):
+            response["rowsTruncated"] = True
         response["errorMessage"] = dataset.get("errorMessage")
     return response
 
@@ -154,7 +158,7 @@ def query_dataset(dataset_id):
     athena_column = next((item["name"] for item in athena_columns if item["source"] == column), None)
     if dataset.get("athenaTable") and athena_column:
         rows, count = run_query(dataset["athenaTable"], athena_columns, athena_column, operator, value)
-        return jsonify({"headers": headers, "rows": rows, "count": count, "queryEngine": "athena"})
+        return jsonify(query_response(headers, rows, count, "athena"))
 
     if dataset.get("previewKey") and current_app.config["STORAGE_BACKEND"] == "aws":
         rows = read_preview(current_app.config["UPLOAD_BUCKET"], dataset["previewKey"]).get("rows", [])
@@ -176,4 +180,12 @@ def query_dataset(dataset_id):
         return value.casefold() in actual.casefold()
 
     matched_rows = [row for row in rows if matches(row)]
-    return jsonify({"headers": headers, "rows": matched_rows[:100], "count": len(matched_rows), "queryEngine": "local" if "localRows" in dataset else "preview"})
+    return jsonify(query_response(headers, matched_rows, len(matched_rows), "local" if "localRows" in dataset else "preview"))
+
+
+def query_response(headers, rows, count, engine):
+    displayed = bounded_response_rows(rows)
+    response = {"headers": headers, "rows": displayed, "count": count, "queryEngine": engine}
+    if len(displayed) < count:
+        response["rowsTruncated"] = True
+    return response

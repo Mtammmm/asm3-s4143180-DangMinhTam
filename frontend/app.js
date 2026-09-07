@@ -195,12 +195,16 @@ function handleFile(file) {
       const dataset = parseCSV(String(reader.result));
       if (!dataset.headers.length || !dataset.rows.length) throw new Error("The file does not contain valid data.");
       displayDataset(dataset, file.name, file.size);
+      let uploadMessage = `${file.name} is ready to preview.`;
       if (currentUser) {
         const saved = await DatasetApi.createDataset({ owner: currentUser.email, name: file.name, size: file.size, headers: dataset.headers, rows: dataset.rows, file, contentType: file.type || "text/csv" });
         if (saved.status === "failed") throw new Error(saved.errorMessage || "Dataset processing failed.");
+        uploadMessage = saved.status === "ready"
+          ? `${file.name} was processed successfully.`
+          : `${file.name} was uploaded. Cloud processing continues; follow its status in your dataset library.`;
         await loadDatasetLibrary({ silent: true });
       }
-      showMessage(`${file.name} was loaded successfully.`, "success");
+      showMessage(uploadMessage, "success");
     } catch (error) {
       showMessage(error.message || "This CSV file could not be read.", "error");
     }
@@ -375,18 +379,23 @@ async function loadSampleData() {
   ];
   const [headers, ...rows] = sample;
   displayDataset({ headers, rows }, "sample-orders.csv", 348);
+  let uploadMessage = "Sample data is ready to preview.";
   if (currentUser) {
     try {
       const sampleSource = [headers, ...rows].map((record) => record.join(",")).join("\n");
       const sampleFile = new Blob([sampleSource], { type: "text/csv" });
-      await DatasetApi.createDataset({ owner: currentUser.email, name: "sample-orders.csv", size: sampleFile.size, headers, rows, file: sampleFile, contentType: "text/csv" });
+      const saved = await DatasetApi.createDataset({ owner: currentUser.email, name: "sample-orders.csv", size: sampleFile.size, headers, rows, file: sampleFile, contentType: "text/csv" });
+      if (saved.status === "failed") throw new Error(saved.errorMessage || "Dataset processing failed.");
+      uploadMessage = saved.status === "ready"
+        ? "Sample data was processed successfully."
+        : "Sample data was uploaded. Cloud processing continues; follow its status in your dataset library.";
       await loadDatasetLibrary({ silent: true });
     } catch (error) {
       showMessage(error.message, "error");
       return;
     }
   }
-  showMessage("Sample data is ready for you to explore.", "success");
+  showMessage(uploadMessage, "success");
 }
 
 function resetWorkspace() {
@@ -514,13 +523,16 @@ async function openDatasetDetails(datasetId) {
   elements.datasetDetailLoading.hidden = false;
   elements.datasetDetailContent.hidden = true;
   elements.queryMessage.textContent = "";
+  elements.queryMessage.classList.remove("error");
   try {
     selectedDataset = await DatasetApi.getDataset(datasetId, currentUser.email);
     elements.datasetDialogTitle.textContent = selectedDataset.name;
     elements.datasetDialogMeta.textContent = `${formatBytes(selectedDataset.size)} / ${formatDate(selectedDataset.createdAt)}`;
     renderDatasetDetailStats(selectedDataset.stats);
     elements.queryColumn.replaceChildren(...selectedDataset.headers.map((header) => new Option(header, header)));
-    renderDataTable(elements.datasetDetailTable, selectedDataset.headers, selectedDataset.rows.slice(0, MAX_PREVIEW_ROWS));
+    const previewRows = selectedDataset.rows.slice(0, MAX_PREVIEW_ROWS);
+    renderDataTable(elements.datasetDetailTable, selectedDataset.headers, previewRows);
+    elements.queryMessage.textContent = `Showing ${previewRows.length.toLocaleString("en-US")} of ${selectedDataset.stats.rows.toLocaleString("en-US")} rows in this preview.${selectedDataset.rowsTruncated ? " The preview display limit was reached; fewer rows are shown to keep the page responsive." : ""}`;
     elements.datasetDetailContent.hidden = false;
   } catch (error) {
     elements.datasetDetailLoading.textContent = error.message || "Dataset details could not be loaded.";
@@ -588,8 +600,9 @@ async function runDatasetQuery(event) {
       operator: elements.queryOperator.value,
       value: elements.queryValue.value.trim()
     });
-    renderDataTable(elements.datasetDetailTable, result.headers, result.rows.slice(0, MAX_PREVIEW_ROWS));
-    elements.queryMessage.textContent = `${result.count.toLocaleString("en-US")} matching rows found. Showing up to ${MAX_PREVIEW_ROWS} rows.${result.queryEngine === "preview" ? " This older dataset searches its preview only; upload it again to search all rows." : ""}`;
+    const displayedRows = result.rows.slice(0, MAX_PREVIEW_ROWS);
+    renderDataTable(elements.datasetDetailTable, result.headers, displayedRows);
+    elements.queryMessage.textContent = `${result.count.toLocaleString("en-US")} matching rows found. Showing ${displayedRows.length.toLocaleString("en-US")} rows.${result.rowsTruncated ? " The result display limit was reached; the matching row count is unchanged." : ""}${result.queryEngine === "preview" ? " This older dataset searches its preview only; upload it again to search all rows." : ""}`;
   } catch (error) {
     elements.queryMessage.textContent = error.message || "The query could not be completed.";
     elements.queryMessage.classList.add("error");
